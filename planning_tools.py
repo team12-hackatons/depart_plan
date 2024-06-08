@@ -1,6 +1,7 @@
 import datetime
 import heapq
-from typing import List, Dict, Tuple
+from typing import List, Dict
+import itertools
 
 class Ship:
     def __init__(self, ship_id: int, destination: str, ready_date: datetime.date, ice_class: int, init_location: str):
@@ -24,25 +25,30 @@ class Port:
         self.port_name = port_name
         self.ships = []
         self.icebreakers = []
-        self.arrival_dates = {}             # mb delete
+        self.arriving_icebreakers = {}
 
     def add_ship(self, ship: Ship):
         self.ships.append(ship)
 
     def add_icebreaker(self, icebreaker: Icebreaker):
         self.icebreakers.append(icebreaker)
+
+    def add_arriving_icebreaker(self, icebreaker: Icebreaker, arriving_date: datetime.date):
+        self.arriving_icebreakers[icebreaker.icebreaker_id] = [arriving_date, icebreaker]
     
     def remove_icebreaker(self, icebreaker: Icebreaker):
-        self.icebreakers.pop(icebreaker)
+        self.icebreakers.remove(icebreaker)
 
     def remove_ship(self, ship: Ship):
-        self.ships.pop(ship)
+        self.ships.remove(ship)
+    
+    def remove_arriving_icebreaker(self, icebreaker: Icebreaker):
+        self.arriving_icebreakers.pop(icebreaker.icebreaker_id)
 
 class Caravan:
     def __init__(self, ships: List[Ship], icebreaker: Icebreaker, max_ships: int):
         if len(ships) > max_ships:
-            print("too much ships in caravan")
-            return 0
+            raise ValueError("too many ships in caravan")
         self.ships = ships
         self.icebreaker = icebreaker
         self.departure_date = max(ship.ready_date for ship in ships)
@@ -50,18 +56,27 @@ class Caravan:
 
     def calculate_caravan_quality(self):
         quality = 0
+        time_with_icebreaker = calculate_caravan_travel_time(self)
         for ship in self.ships:
-            time_alone = calculate_travel_time(ship, None)
-            time_with_icebreaker = calculate_travel_time(ship, self.icebreaker)
-            time_profit = time_alone - time_with_icebreaker
+            time_alone = calculate_ship_travel_time(ship, None)
+            if time_alone == -1:
+                time_profit = time_with_icebreaker
+            else:
+                time_profit = time_alone - time_with_icebreaker
             quality += time_profit
         return quality
 
-def calculate_travel_time(ship: Ship, icebreaker: Icebreaker) -> int:
+def calculate_ship_travel_time(ship: Ship, icebreaker: Icebreaker) -> int:
     # Placeholder for travel time calculation function
+    # Calculates ship solo-trip time 
     # returns travel time in days
     pass
 
+def calculate_caravan_travel_time(caravan: Caravan) -> int:
+    # Placeholder for travel time calculation function
+    # Calculates caravan trip time depending on the weakest ship in group 
+    # returns travel time in days
+    pass
 
 class PlanningSystem:
     def __init__(self, ports: List[Port], max_in_caravan: int, max_icebreakers: int, current_date: datetime.date):
@@ -98,6 +113,7 @@ class PlanningSystem:
     def plan_shipments(self):
         for port_name, port in self.ports.items():
             self.plan_port_shipments(port)
+            self.check_icebreaker_availability(port)
 
     def plan_port_shipments(self, port: Port):
         # Step 1: Group ships by destination
@@ -105,22 +121,20 @@ class PlanningSystem:
 
         # Step 2: Form caravans for each destination group
         for destination, ships in destination_groups.items():
-            ships.sort(key=lambda x: x.ready_date)
-            while ships:
-                caravan_ships = ships[:self.max_in_caravan]
-                ships = ships[self.max_in_caravan:]
+            best_caravan = None
+            best_quality = float('-inf')
 
-                best_caravan = None
-                best_quality = float('-inf')
+            # Generate all possible combinations of ships for sizes from 1 to max_in_caravan
+            for size in range(1, self.max_in_caravan + 1):
+                for comb in itertools.combinations(ships, size):
+                    for icebreaker in port.icebreakers:
+                        caravan = Caravan(list(comb), icebreaker, self.max_in_caravan)
+                        if caravan.caravan_quality > best_quality:
+                            best_caravan = caravan
+                            best_quality = caravan.caravan_quality
 
-                for icebreaker in port.icebreakers:
-                    caravan = Caravan(caravan_ships, icebreaker)
-                    if caravan.caravan_quality > best_quality:
-                        best_caravan = caravan
-                        best_quality = caravan.caravan_quality
-
-                if best_caravan:
-                    self.depart_caravan(best_caravan, port)
+            if best_caravan and len(port.icebreakers) > 0:
+                self.depart_caravan(best_caravan, port)
 
     def group_ships_by_destination(self, ships: List[Ship]) -> Dict[str, List[Ship]]:
         groups = {}
@@ -141,8 +155,47 @@ class PlanningSystem:
 
         # Set departure and arrival dates
         caravan.departure_date = max(ship.ready_date for ship in caravan.ships)
-        arrival_date = caravan.departure_date + datetime.timedelta(days=calculate_travel_time(None, caravan.icebreaker))
+        arrival_date = caravan.departure_date + datetime.timedelta(days=calculate_caravan_travel_time(caravan))
         caravan.icebreaker.available_date = arrival_date
-        self.ports[caravan.ships[0].destination].arrival_dates[caravan.icebreaker.icebreaker_id] = arrival_date
+        self.ports[caravan.ships[0].destination].add_arriving_icebreaker(caravan.icebreaker, arrival_date)
 
-        print(f"Caravan with icebreaker {caravan.icebreaker.icebreaker_id} departs from {port.port_name} on {caravan.departure_date} to {caravan.ships[0].destination}.")
+        print(f"[LOG] Caravan with icebreaker {caravan.icebreaker.icebreaker_id} departs from {port.port_name} on {caravan.departure_date} to {caravan.ships[0].destination} arriving at {arrival_date}.")
+
+
+    def check_icebreaker_availability(self, port: Port):
+        if port.icebreakers:
+            self.reassign_icebreaker(port)
+
+    def calculate_icebreaker_travel_time_to_port(self, from_port: Port, to_port: Port) -> int:
+        # Placeholder function to calculate travel time between ports
+        return 5  # Example fixed travel time
+
+    def reassign_icebreaker(self, port: Port):
+        best_port = None
+        best_value = float('-inf')
+
+        for other_port in self.ports.values():
+            if other_port == port:
+                continue
+            best_caravan_quality = float('-inf')
+            for destination, ships in self.group_ships_by_destination(other_port.ships).items():
+                for size in range(1, self.max_in_caravan + 1):
+                    for comb in itertools.combinations(ships, size):
+                        caravan = Caravan(list(comb), None, self.max_in_caravan)
+                        if caravan.caravan_quality > best_caravan_quality:
+                            best_caravan_quality = caravan.caravan_quality
+            travel_time = self.calculate_icebreaker_travel_time_to_port(port, other_port)
+            port_value = best_caravan_quality - travel_time
+            if port_value > best_value:
+                best_value = port_value
+                best_port = other_port
+
+        if best_port:
+            # Assign an icebreaker to the best port
+            best_caravan = max(best_port.icebreakers, key=lambda x: x.available_date)
+            port.add_icebreaker(best_caravan)
+            best_port.remove_icebreaker(best_caravan)
+            travel_time = self.calculate_icebreaker_travel_time_to_port(port, best_port)
+            arrival_date = self.current_date + datetime.timedelta(days=travel_time)
+            port.add_arriving_icebreaker(best_caravan, arrival_date)
+
