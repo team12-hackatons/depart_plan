@@ -4,34 +4,36 @@ from typing import List, Dict, Tuple, Optional
 import itertools
 
 class Ship:
-    def __init__(self, ship_id: int, destination: str, ready_date: datetime.date, ice_class: int, init_location: str):
+    def __init__(self, ship_id: int, destination: str, ready_date: datetime.date, ice_class: int, init_location: str, speed: int):
         self.ship_id = ship_id
         self.init_location = init_location
         self.destination = destination
         self.ready_date = ready_date
         self.ice_class = ice_class
+        self.speed = speed
         self.caravan = None
 
 class Icebreaker:
-    def __init__(self, icebreaker_id: int, location: str, destination: str, available_date: datetime.date, ice_class: int):
+    def __init__(self, icebreaker_id: int, location: str, ice_class: int, speed: float):
         self.icebreaker_id = icebreaker_id
         self.location = location
-        self.destination = destination
-        self.available_date = available_date
+        self.destination = datetime.date.today()
+        self.available_date = None
+        self.speed = speed
         self.ice_class = ice_class
 
 class Port:
     def __init__(self, port_name: str):
         self.port_name = port_name
-        self.ships = []
-        self.icebreakers = []
+        self.ships = {}
+        self.icebreakers = {}
         self.arriving_icebreakers = {}
 
-    def add_ship(self, ship: Ship):
-        self.ships.append(ship)
+    def add_ship(self, ship_id: int, ship: Ship):
+        self.ships[ship_id] = ship
 
-    def add_icebreaker(self, icebreaker: Icebreaker):
-        self.icebreakers.append(icebreaker)
+    def add_icebreaker(self, icebreaker_id: int, icebreaker: Icebreaker):
+        self.icebreakers[icebreaker_id] = icebreaker
 
     def add_arriving_icebreaker(self, icebreaker: Icebreaker, arriving_date: datetime.date):
         self.arriving_icebreakers[icebreaker.icebreaker_id] = [arriving_date, icebreaker]
