@@ -282,9 +282,10 @@ class RouteSchedule:
         self.routes = []
 
     def add_route(self, departure_date: datetime, arrival_date: datetime, 
-                  departure_port: str, arrival_port: str, movement_type: str, participants: List[str]):
+                  departure_port: str, arrival_port: str, movement_type: str, participants: List[str], quality):
         route = {
             'departure_date': departure_date,
+            'quality': quality,
             'arrival_date': arrival_date,
             'departure_port': departure_port,
             'arrival_port': arrival_port,
@@ -468,9 +469,10 @@ class PlanningSystem:
     
     def record_route(self, departure_date: datetime, arrival_date: datetime, 
                      departure_port: str, arrival_port: str, movement_type: str, 
-                     participants: List[str]):
+                     participants: List[str], quality:float):
         
-        self.schedule.add_route(departure_date=departure_date, 
+        self.schedule.add_route(departure_date=departure_date,
+                                quality= quality,
                                 arrival_date=arrival_date, 
                                 departure_port=departure_port,
                                 arrival_port=arrival_port, 
