@@ -6,7 +6,7 @@ import itertools
 import folium
 from geopy.distance import geodesic
 import networkx as nx
-from search.testGenerateSteps import generate_points, optimize
+from search.testGenerateSteps import generate_points, optimize, check_start_end
 from search.testMapMask import MapMask
 from ship.getShip import get_ship_by_name
 from helpers.nodeInfo import NodeInfo
@@ -156,8 +156,8 @@ def calculate_ship_travel_time(ship: Ship) -> int:
     current_time = int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
     map_mask.change_ice_map(current_time)
     NodeInfo.set_class(ship_inf['end'][0], ship_inf['end'][1], current_time)
-    start_point_node = NodeInfo(ship_inf['start'][0], ship_inf['start'][1], 0., map_mask, current_time)
-    end_point_node = NodeInfo(ship_inf['end'][0], ship_inf['end'][1], 0, map_mask, current_time)
+    start_point_node = check_start_end(map_mask, NodeInfo(ship_inf['start'][0], ship_inf['start'][1], 0., map_mask, current_time))
+    end_point_node = check_start_end(map_mask, NodeInfo(ship_inf['end'][0], ship_inf['end'][1], 0, map_mask, current_time))
 
     G.add_node(start_point_node)
     G.add_node(end_point_node)
@@ -209,9 +209,11 @@ def calculate_caravan_travel_time(caravan: Caravan) -> int:
     map_mask.change_ice_map(current_time)
     print(caravan.start_location, caravan.end_location, [ship.ship_name for ship in caravan.ships], current_time)
     NodeInfo.set_class(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], current_time)
-    start_point_node = NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[1], 0., map_mask, current_time)
-    end_point_node = NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], 0, map_mask, current_time)
-
+    start_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[1], 0., map_mask, current_time))
+    end_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], 0, map_mask, current_time))
+    #print (start_point_node.lat, start_point_node.lon, end_point_node.lat,end_point_node.lon)
+    #map_mask.plot_point(start_point_node.lat, start_point_node.lon)
+    #map_mask.plot_point(end_point_node.lat,end_point_node.lon)
     G.add_node(start_point_node)
     G.add_node(end_point_node)
 
@@ -402,7 +404,7 @@ class PlanningSystem:
                         best_caravan = caravan
                         best_quality = caravan.caravan_quality
                         print(best_caravan.caravan_quality)
-        if best_caravan.caravan_quality>float('-inf'):
+        if best_caravan and best_caravan.caravan_quality>float('-inf'):
             return best_caravan 
 
     def check_icebreaker_availability(self, port: Port):

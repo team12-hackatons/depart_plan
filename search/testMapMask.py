@@ -101,9 +101,9 @@ class MapMask:
 
     def plot_point(self, lat, lon):
         x, y = self.decoder(lat, lon)
-        image_with_point = self.image.copy()  # Создаем копию исходного изображения
+        image_with_point = self.ice_map.copy()  # Создаем копию исходного изображения
         draw = ImageDraw.Draw(image_with_point)
-        draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill='red')  # Рисуем точку
+        draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill='green')  # Рисуем точку
         image_with_point.show()
 
     def plot_point_X_Y(self, points):

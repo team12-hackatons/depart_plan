@@ -62,9 +62,21 @@ def find_nearest_index(map_mask, start_x, start_y, step_size=2, max_steps=10):
         for dx, dy in directions:
             new_x = start_x + dx * step_size * i
             new_y = start_y + dy * step_size * i
+
+            # Обработка выхода за границы по оси Y
+            if new_y < 0 or new_y >= map_mask.map_height:
+                continue
+            
+            # Обработка выхода за границы по оси X
+            if new_x < 0:
+                new_x = map_mask.map_width + new_x
+            elif new_x >= map_mask.map_width:
+                new_x = new_x - map_mask.map_width
+
             index = map_mask.get_ice_index(new_x, new_y)
             if index != 0:
                 return new_x, new_y, index
+    return start_x, start_y, map_mask.get_ice_index(start_x, start_y)
 
 def calculate_time(start_point, end_point, map_mask, info, caravan, speed):
     kilometers = geodesic((start_point.lat, start_point.lon), (end_point.lat, end_point.lon)).kilometers
@@ -75,6 +87,7 @@ def calculate_time(start_point, end_point, map_mask, info, caravan, speed):
         _, _, index = find_nearest_index(map_mask, end_point.x, end_point.y)
 
         if index==0: 
+            print('index')
             time += kilometers / speed_kmh * index
     elif index == 1000 or info[f'{index}'][caravan]==-1:
         return -1
@@ -137,3 +150,39 @@ def generate_points(point, map_mask, visited, info, caravan, speed):
                     if (x, y) not in visited or new_point.time_in_path < visited[(x, y)].time_in_path:
                         points.append(new_point)
     return points
+
+
+def check_start_end(map_mask, point, step_size=5, max_steps=30):
+    directions = [(1, 0), (-1, 0), (0, 1), (0, -1),  # по осям x и y
+                  (1, 1), (-1, 1), (1, -1), (-1, -1)]  # по диагонали
+    start_x, start_y =  point.x, point.y
+    index = map_mask.get_ice_index(start_x, start_y)
+    if index==1000 or index==0:
+        print(f'точка недоступна координаты {point.lat,point.lon}')
+        for i in range(1, max_steps + 1):
+            for dx, dy in directions:
+                new_x = start_x + dx * step_size * i
+                new_y = start_y + dy * step_size * i
+
+                # Обработка выхода за границы по оси Y
+                if new_y < 0 or new_y >= map_mask.map_height:
+                    directions.remove((dx,dy))
+                    continue
+                
+                # Обработка выхода за границы по оси X
+                if new_x < 0:
+                    new_x = map_mask.map_width + new_x
+                elif new_x >= map_mask.map_width:
+                    new_x = new_x - map_mask.map_width
+                aqua = map_mask.is_aqua(new_x, new_y)
+                if not aqua: 
+                    directions.remove((dx, dy))
+                    continue
+                index = map_mask.get_ice_index(new_x, new_y)
+                if index != 0 and index != 1000 and aqua:
+                    point.lat,point.lon = map_mask.reverse_decoder(new_x,new_y)
+                    point.x,point.y = new_x,new_y
+                    print(f'точка найдена {point.lat,point.lon}')
+                    #map_mask.plot_point(point.lat,point.lon)
+                    return point
+    return point
