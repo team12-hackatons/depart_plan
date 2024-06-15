@@ -39,3 +39,4 @@ for k,v in icebreakers.items():
 #for snip in list(ships.values()): print(calculate_ship_travel_time(snip))
 plan = PlanningSystem(ports.values(), max_icebreakers=4, max_in_caravan=3,current_date= min([ship_1.ready_date for ship_1 in ships.values()]))
 plan.run_daily_planning()
+plan.schedule.print_schedule()

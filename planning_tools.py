@@ -152,6 +152,7 @@ class Caravan:
 
 def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
     print(ship.ship_name, ship.init_location, ship.destination)
+    print(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
     ship_inf = get_ship_by_name(ship.ship_name, directory='../ship')
     G = nx.Graph()
     current_time = int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
@@ -200,7 +201,7 @@ def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
         return n1.time_in_path + n2.time_in_path
     if is_path_exist:
         shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
-        draw_path(shortest_path, map_mask)
+        print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
         return (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
     return -1, []
 
@@ -210,12 +211,10 @@ def calculate_caravan_travel_time(caravan: Caravan) -> int:
     current_time = int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
     map_mask.change_ice_map(int(datetime.strptime( caravan.planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
     print(caravan.start_location, caravan.end_location, [ship.ship_name for ship in caravan.ships], current_time)
+    print(int(datetime.strptime( caravan.planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
     NodeInfo.set_class(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], current_time)
     start_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[1], 0., map_mask, current_time))
     end_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], 0, map_mask, current_time))
-    #print (start_point_node.lat, start_point_node.lon, end_point_node.lat,end_point_node.lon)
-    #map_mask.plot_point(start_point_node.lat, start_point_node.lon)
-    #map_mask.plot_point(end_point_node.lat,end_point_node.lon)
     G.add_node(start_point_node)
     G.add_node(end_point_node)
 
@@ -258,7 +257,7 @@ def calculate_caravan_travel_time(caravan: Caravan) -> int:
 
     if is_path_exist:
         shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
-        optimize(shortest_path, map_mask, ice_info[caravan.speed_coef],1,caravan.speed)
+        print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
         return (shortest_path[-2].current_time-int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
     return -1, []
 def draw_path(shortest_path, map_mask):
@@ -308,14 +307,29 @@ class RouteSchedule:
                 old_participants=set(route['participants'].ship_name)
             if movement_type == 'caravan': 
                 new_participants = set([ship.ship_name for ship in participants[:-1]])
-            elif route["movement_type"] == 'ship': 
-                new_participants=set(participants[0].ship_name)
+            elif movement_type == 'ship': 
+                new_participants=set(participants.ship_name)
             if len(set.intersection(new_participants, old_participants))>0 and quality > route['quality']:
                 self.routes.pop(i)
                 self.add_route(departure_date,arrival_date,departure_port,arrival_port, movement_type, participants, quality)
                 break
         if not found:
             self.add_route(departure_date,arrival_date,departure_port,arrival_port, movement_type, participants, quality)
+            
+    def print_schedule(self):
+        for rout in self.routes:
+            participants = None
+            if rout["movement_type"] == 'icebreaker': participants = rout['participants'].icebreaker_id
+            elif rout["movement_type"] == 'caravan': participants = [ship.ship_name for ship in participants[:-1]]+ [rout['participants'][-1].icebreaker_id]
+            elif rout["movement_type"] == 'ship': participants = rout['participants'].ship_name
+            print('departure_date:', rout['departure_date'],
+            'quality:', rout['quality'],
+            'arrival_date:', rout['arrival_date'],
+            'departure_port:', rout['departure_port'],
+            'arrival_port:', rout['arrival_port'],
+            'movement_type:', rout["movement_type"],
+            'participants:', participants)       
+    
 '''
 ------------------------------------------------------------------------------------------------------------------------------
 Class for whole planning process
@@ -474,7 +488,7 @@ class PlanningSystem:
 
             # If not, assign independent departure date
             departure_date = ship.ready_date
-            travel_time, path = calculate_ship_travel_time(ship)
+            travel_time, path = calculate_ship_travel_time(ship, planning_date=self.current_date)
             if travel_time != -1:
                 arrival_date = departure_date + timedelta(days=travel_time)
                 
