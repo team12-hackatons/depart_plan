@@ -42,15 +42,22 @@ def calculate_time_by_lat_lon(lat1, lon1, lat2, lon2, mapMask, info, caravan, sp
     speed_kmh = speed * 1.852
     time = 0
     for x, y in points:
-        if not mapMask.is_aqua(x, y):
-            return -1
         index = mapMask.get_ice_index(x, y)
-        if index == 1000 or info[f'{index}'][caravan]==-1:
+        if index == 0:
+            _, _, index = find_nearest_index(mapMask, x, y)
+
+            if index==0: 
+                print('index')
+                time += kilometers / speed_kmh * index
+        elif index == 1000 or info[f'{index}'][caravan]==-1:
             return -1
         elif index == 3 or index == 2 or index == 1:
+            
             time += kilometers / (info[f'{index}'][caravan]*speed * 1.852) * 3600
         else:
             time += kilometers / speed_kmh * index
+
+
     return time
 
 
@@ -111,7 +118,7 @@ def f_cost(g_cost, h_cost, weight=0.5):
     return weight * g_cost + (1 - weight) * h_cost
 
 
-def optimize(path, map_mask):
+def optimize(path, map_mask, info, caravan, speed):
     i = 1
     while i < len(path) - 1:
         current_point = path[i]
@@ -123,7 +130,7 @@ def optimize(path, map_mask):
         current_time = current_point.time_in_path + next_point.time_in_path + prev_point.time_in_path
 
         direct_time = calculate_time_by_lat_lon(prev_point.lat, prev_point.lon, next_point.lat, next_point.lon,
-                                                map_mask)
+                                                map_mask, info, caravan, speed)
 
         if direct_time < current_time and direct_time != -1:
             next_point.set_time(direct_time)

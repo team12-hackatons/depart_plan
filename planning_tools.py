@@ -199,6 +199,8 @@ def calculate_ship_travel_time(ship: Ship) -> int:
         return n1.time_in_path + n2.time_in_path
     if is_path_exist:
         shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
+        optimize(shortest_path, map_mask, ship_inf['info'], 0, ship.speed)
+        draw_path(shortest_path, map_mask)
         return (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
     return -1, []
 
@@ -257,6 +259,7 @@ def calculate_caravan_travel_time(caravan: Caravan) -> int:
     if is_path_exist:
         shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
         draw_path(shortest_path, map_mask)
+        optimize(shortest_path, map_mask, ice_info[caravan.speed_coef],1,caravan.speed)
         return (shortest_path[-2].current_time-int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
     return -1, []
 def draw_path(shortest_path, map_mask):
