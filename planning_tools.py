@@ -373,7 +373,7 @@ class RouteSchedule:
             cur_dict['arrival_date'] = rout['arrival_date'].strftime('%Y-%m-%d %H:%M:%S')
             cur_dict['departure_port'] = rout['departure_port']
             cur_dict['arrival_port'] = rout['arrival_port']
-            cur_dict['movement_type'] = rout['departure_port']
+            cur_dict['movement_type'] = rout['movement_type']
             cur_dict['quality'] = rout['quality']
             cur_dict['path']=[[node.lat,node.lon,node.current_time] for node in rout['path']]
             
