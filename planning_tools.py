@@ -12,11 +12,11 @@ from ship.getShip import get_ship_by_name
 from helpers.nodeInfo import NodeInfo
 import json
 
-map_mask = MapMask('resultMap\map_image.png')
-with open(r'ship\ports1.json', 'r', encoding='utf-8') as file:
+map_mask = MapMask('resultMap/map_image.png')
+with open(r'ship/ports1.json', 'r', encoding='utf-8') as file:
     ports_df = json.load(file)
 
-with open('ship\info.json', 'r', encoding='utf-8') as file:
+with open('ship/info.json', 'r', encoding='utf-8') as file:
     ice_info = json.load(file)
 
 def get_port_coordinates(ports_df, port_name):
@@ -572,3 +572,60 @@ class PlanningSystem:
     def calculate_icebreaker_travel_time_to_port(self, from_port: Port, to_port: Port) -> int:
         # Placeholder function to calculate travel time between ports
         return 5  # Example fixed travel time
+
+
+def calculate_ship_travel(ship, planning_date, info):
+    # print(ship['ship_name'], ship['init_location'], ship['destination'])
+    # print(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
+    # ship_inf = get_ship_by_name(ship.ship_name, directory='../ship')
+    G = nx.Graph()
+    current_time = int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
+    map_mask.change_ice_map(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
+    NodeInfo.set_class(ship['end'][0], ship['end'][1], current_time)
+    start_point_node = check_start_end(map_mask, NodeInfo(ship['start'][0], ship['start'][1], 0., map_mask, current_time))
+    end_point_node = check_start_end(map_mask, NodeInfo(ship['end'][0], ship['end'][1], 0, map_mask, current_time))
+
+    G.add_node(start_point_node)
+    G.add_node(end_point_node)
+
+    steps = [start_point_node]
+    visited = {}
+    i = 0
+
+    is_path_exist = False
+
+    while True:
+        if len(steps) == 0:
+            print("пути нет")
+            break
+        current_point = steps.pop()
+        if current_point.distance_to_end <= 10:
+            print("Путь есть")
+            is_path_exist = True
+            G.add_edge(current_point, end_point_node)
+            break
+        if (current_point.x, current_point.y) in visited:
+            continue
+        visited[(current_point.x, current_point.y)] = current_point
+        new_steps = generate_points(current_point, map_mask, visited, info, 0, ship['speed'])
+        for step in new_steps:
+            G.add_node(step)
+            G.add_edge(current_point, step, weight=step.distance_to_end)
+        steps.extend(new_steps)
+        steps = sorted(steps, key=lambda x: x.distance_to_end, reverse=True)
+        i += 1
+        if i >= 15000:
+            print("Достигнут предел итераций")
+            break
+
+    # G.add_edge(current_point, end_point_node)
+
+    # Функция эвристики для алгоритма A*
+    def heuristic(n1, n2):
+        return n1.time_in_path + n2.time_in_path
+    if is_path_exist:
+        shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
+        optimize(shortest_path, map_mask, info, 0, ship['speed'])
+        # print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
+        return (shortest_path[-2].current_time-int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
+    return -1, []
