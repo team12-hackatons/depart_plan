@@ -9,35 +9,28 @@ app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
-# Пример данных о кораблях (замените на ваше хранилище данных)
-ships = [
-    {
-        "name": "Ship1",
-        "ice_class": "A",
-        "start_point": "Port A",
-        "end_point": "Port B",
-        "start_time": "2024-06-16 12:00:00"
-    },
-    {
-        "name": "Ship2",
-        "ice_class": "B",
-        "start_point": "Port C",
-        "end_point": "Port D",
-        "start_time": "2024-06-16 13:00:00"
-    }
-]
+with open('data/routes_schedule.json', 'r', encoding='utf-8') as f:
+    ships = json.load(f)
 
 @app.route('/api/ships', methods=['GET'])
 @cross_origin()
 def getAllShips():
-    return jsonify(ships)
+    filtered_ships = {}
+
+    for key, ship in ships.items():
+        # Exclude the 'path' field from each ship
+        filtered_ship = {k: v for k, v in ship.items() if k != 'path'}
+        filtered_ships[key] = filtered_ship
+
+    return jsonify(filtered_ships)
 
 @app.route('/api/ship/<string:name>', methods=['GET'])
 @cross_origin()
 def getOneShip(name):
-    for ship in ships:
-        if ship['name'] == name:
-            return jsonify(ship)
+    if name in ships:
+        response = jsonify(ships[name])
+        response.headers.add('Content-Type', 'application/json; charset=utf-8')
+        return response
     return jsonify({'message': 'Ship not found'}), 404
 
 # Добавление нового корабля (POST запрос)
