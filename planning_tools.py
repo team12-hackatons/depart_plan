@@ -291,7 +291,8 @@ class RouteSchedule:
         self.routes = []
 
     def add_route(self, departure_date: datetime, arrival_date: datetime, 
-                  departure_port: str, arrival_port: str, movement_type: str, participants: List[str], quality):
+                  departure_port: str, arrival_port: str, movement_type: str, 
+                  participants: List[str], quality, path):
         route = {
             'departure_date': departure_date,
             'quality': quality,
@@ -300,7 +301,8 @@ class RouteSchedule:
             'arrival_port': arrival_port,
             'movement_type': movement_type,
             'participants': participants,
-            'is_finished': False
+            'is_finished': False,
+            'path':path
         }
         self.routes.append(route)
 
@@ -308,7 +310,7 @@ class RouteSchedule:
         return [route for route in self.routes if route['departure_date'].date() <= date.date() or route['arrival_date'].date() == date.date()]
     
     def update_route(self, departure_date: datetime, arrival_date: datetime, 
-                  departure_port: str, arrival_port: str, movement_type: str, participants: List[str], quality):
+                  departure_port: str, arrival_port: str, movement_type: str, participants: List[str], quality, path):
         found = False
         for i, route in enumerate(self.routes):
             if route["movement_type"] == 'icebreaker' or movement_type == 'icebreaker': continue
@@ -325,7 +327,7 @@ class RouteSchedule:
                 self.add_route(departure_date,arrival_date,departure_port,arrival_port, movement_type, participants, quality)
                 break
         if not found:
-            self.add_route(departure_date,arrival_date,departure_port,arrival_port, movement_type, participants, quality)
+            self.add_route(departure_date,arrival_date,departure_port,arrival_port, movement_type, participants, quality, path)
             
     def print_schedule(self):
         for rout in self.routes:
@@ -342,7 +344,45 @@ class RouteSchedule:
             'departure_port:', rout['departure_port'],
             'arrival_port:', rout['arrival_port'],
             'movement_type:', rout["movement_type"],
-            'participants:', participants)       
+            'participants:', participants)
+
+    def save_schedule_json(self):
+        fin_dict = {}
+        for i, rout in enumerate(self.routes):
+            
+            cur_dict = {}
+
+            participants = None
+            if rout["movement_type"] == 'icebreaker': 
+                participants = rout['participants'].icebreaker_id
+            elif rout["movement_type"] == 'caravan': 
+                participants = [ship.ship_name for ship in rout['participants'][:-1]]+ [rout['participants'][-1].icebreaker_id]
+            elif rout["movement_type"] == 'ship': 
+                participants = rout['participants'].ship_name
+
+            print('departure_date:', rout['departure_date'],
+            'quality:', rout['quality'],
+            'arrival_date:', rout['arrival_date'],
+            'departure_port:', rout['departure_port'],
+            'arrival_port:', rout['arrival_port'],
+            'movement_type:', rout["movement_type"],
+            'participants:', participants)
+            
+            cur_dict['participants'] = participants
+            cur_dict['departure_date'] = rout['departure_date'].strftime('%Y-%m-%d %H:%M:%S')
+            cur_dict['arrival_date'] = rout['arrival_date'].strftime('%Y-%m-%d %H:%M:%S')
+            cur_dict['departure_port'] = rout['departure_port']
+            cur_dict['arrival_port'] = rout['arrival_port']
+            cur_dict['movement_type'] = rout['departure_port']
+            cur_dict['quality'] = rout['quality']
+            cur_dict['path']=[[node.lat,node.lon,node.current_time] for node in rout['path']]
+            
+            fin_dict[i] = cur_dict
+
+        with open('routes_schedule.json', 'w') as file:
+            json.dump(fin_dict, file)
+
+
     
 '''
 ------------------------------------------------------------------------------------------------------------------------------
@@ -397,8 +437,7 @@ class PlanningSystem:
             is_planning_finished = self.check_planning_finish()
 
     def check_new_applications(self):
-        # Check for new ship applications and add them to respective ports
-        # some function to add applications online        
+        # Check for new ship applications and add them to respective ports     
         print('Want to add new shipment application? Respond y/n: ')
 
         while True:
@@ -515,7 +554,8 @@ class PlanningSystem:
                                 departure_port=port.port_name,
                                 arrival_port=best_caravan.ships[0].destination, 
                                 movement_type='caravan',
-                                participants=participants)             
+                                participants=participants,
+                                path=path)             
 
     def group_ships_by_destination(self, ships: List[Ship]) -> Dict[str, List[Ship]]:
         groups = {}
@@ -579,7 +619,8 @@ class PlanningSystem:
                           departure_port=port.port_name,
                           arrival_port=best_port.port_name, 
                           movement_type='icebreaker',
-                          participants=icebreaker)
+                          participants=icebreaker,
+                          path=path)
     
     def plan_remaining_ships(self, port: Port):
         for ship in port.ships.values():
@@ -598,14 +639,15 @@ class PlanningSystem:
                                   departure_port=port.port_name,
                                   arrival_port=ship.destination, 
                                   movement_type='ship',
-                                  participants=ship)    
+                                  participants=ship,
+                                  path=path)    
 
 # insert some logs somewhere, like:
 #print(f"[LOG] Caravan with icebreaker {caravan.icebreaker.icebreaker_id} departs from {port.port_name} on {caravan.departure_date} to {caravan.ships[0].destination} arriving at {arrival_date}.")
     
     def record_route(self, departure_date: datetime, arrival_date: datetime, 
                      departure_port: str, arrival_port: str, movement_type: str, 
-                     participants: List[str], quality:float):
+                     participants: List[str], quality:float, path):
         
         self.schedule.update_route(departure_date=departure_date,
                                 quality= quality,
@@ -613,7 +655,8 @@ class PlanningSystem:
                                 departure_port=departure_port,
                                 arrival_port=arrival_port, 
                                 movement_type=movement_type, 
-                                participants=participants)
+                                participants=participants,
+                                path=path)
         print(departure_date, arrival_date, departure_port,arrival_port, movement_type, participants)
         
         

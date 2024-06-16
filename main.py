@@ -33,7 +33,7 @@ icebreakers = {ind: val for  ind, val in enumerate(icebracker_df.apply(lambda ro
 
 print(ships.items())
 
-test_ship_num = 1 # only for test
+test_ship_num = 5 # only for test
 for k,v in ships.items():
     ports[v.init_location].add_ship(v)
     
@@ -42,7 +42,7 @@ for k,v in ships.items():
     if test_ship_num == 0:
         break
 
-test_icebreaker_num = 1    
+test_icebreaker_num = 2   
 for k,v in icebreakers.items():
     ports[v.location].add_icebreaker(v)
 
@@ -54,3 +54,4 @@ for k,v in icebreakers.items():
 plan = PlanningSystem(ports.values(), max_icebreakers=4, max_in_caravan=3,current_date= min([ship_1.ready_date for ship_1 in ships.values()]))
 plan.run_daily_planning()
 plan.schedule.print_schedule()
+plan.schedule.save_schedule_json()
