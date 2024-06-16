@@ -66,13 +66,14 @@ __init__ - add info about new icebreaker
 -------------------------------------------------
 '''
 class Icebreaker:
-    def __init__(self, icebreaker_id: int, location: str, ice_class: int, speed: float, destination: str = None, available_date = datetime.combine(datetime.strptime("1-March-2022 00:00:00", "%d-%B-%Y %H:%M:%S").date(), datetime.min.time())):
+    def __init__(self, icebreaker_id: int, location: str, ice_class: int, speed: float,icebreaker_name: str, destination: str = None, available_date = datetime.combine(datetime.strptime("1-March-2022 00:00:00", "%d-%B-%Y %H:%M:%S").date(), datetime.min.time())):
         self.icebreaker_id = icebreaker_id
         self.location = location
         self.destination = destination
         self.available_date = available_date
         self.speed = speed
         self.ice_class = ice_class
+        self.icebreaker_name=icebreaker_name
 
 '''
 ------------------------------------------------------------------------------------------------------------------------
@@ -460,7 +461,7 @@ class PlanningSystem:
                         continue
                     best_caravan = self.find_best_caravan(list(other_port.ships.values()), list(other_port.icebreakers.values()))
                     if best_caravan:
-                        travel_time = self.calculate_icebreaker_travel_time_to_port(icebreaker, other_port)
+                        travel_time = self.calculate_icebreaker_travel_time_to_port(icebreacker=icebreaker, from_port=port,to_port=other_port)
                         time_before_caravan_ready = (best_caravan.departure_date - self.current_date).days
                         port_value = best_caravan.caravan_quality - abs(travel_time - time_before_caravan_ready)
                         if port_value > best_value:
@@ -470,7 +471,7 @@ class PlanningSystem:
 
     def reassign_icebreaker(self, port: Port, best_port: Port, icebreaker: Icebreaker, quality: float):
         
-        travel_time = self.calculate_icebreaker_travel_time_to_port(port, best_port)
+        travel_time = self.calculate_icebreaker_travel_time_to_port(icebreacker=icebreaker,from_port=port, to_port=best_port)
         arrival_date = self.current_date + timedelta(days=travel_time)
         
         self.record_route(departure_date=self.current_date,
@@ -569,6 +570,56 @@ class PlanningSystem:
                 if ship:
                     port.add_ship(ship)
 
-    def calculate_icebreaker_travel_time_to_port(self, from_port: Port, to_port: Port) -> int:
-        # Placeholder function to calculate travel time between ports
-        return 5  # Example fixed travel time
+    def calculate_icebreaker_travel_time_to_port(self, icebreacker: Icebreaker,from_port: Port, to_port: Port) -> int:
+        G = nx.Graph()
+        current_time = int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
+        map_mask.change_ice_map(int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
+        print(from_port.port_name, to_port.port_name,  icebreacker.icebreaker_name,current_time)
+        NodeInfo.set_class(get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[0], get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[1], current_time)
+        start_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=from_port.port_name)[0], get_port_coordinates(ports_df=ports_df, port_name=from_port.port_name)[1], 0., map_mask, current_time))
+        end_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[0], get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[1], 0, map_mask, current_time))
+        G.add_node(start_point_node)
+        G.add_node(end_point_node)
+
+        steps = [start_point_node]
+        visited = {}
+        i = 0
+
+        is_path_exist = False
+
+        while True:
+            if len(steps) == 0:
+                print("пути нет")
+                break
+            current_point = steps.pop()
+            if current_point.distance_to_end <= 10:
+                print("Путь есть")
+                is_path_exist = True
+                G.add_edge(current_point, end_point_node)
+                break
+            if (current_point.x, current_point.y) in visited:
+                continue
+            visited[(current_point.x, current_point.y)] = current_point
+            new_steps = generate_points(current_point, map_mask, visited, ice_info['Acr9'][icebreacker.icebreaker_name],1,1)
+            for step in new_steps:
+                G.add_node(step)
+                G.add_edge(current_point, step, weight=step.distance_to_end)
+            steps.extend(new_steps)
+            steps = sorted(steps, key=lambda x: x.distance_to_end, reverse=True)
+            i += 1
+            if i >= 15000:
+                print("Достигнут предел итераций")
+                break
+
+        # G.add_edge(current_point, end_point_node)
+
+        # Функция эвристики для алгоритма A*
+        def heuristic(n1, n2):
+            return n1.time_in_path + n2.time_in_path
+
+
+        if is_path_exist:
+            shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
+            print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
+            return (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
+        return -1, []

@@ -159,7 +159,7 @@ def generate_points(point, map_mask, visited, info, caravan, speed):
     return points
 
 
-def check_start_end(map_mask, point, step_size=5, max_steps=70):
+def check_start_end(map_mask, point, step_size=5, max_steps=30):
     directions = [(1, 0), (-1, 0), (0, 1), (0, -1),  # по осям x и y
                   (1, 1), (-1, 1), (1, -1), (-1, -1)]  # по диагонали
     start_x, start_y =  point.x, point.y

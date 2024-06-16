@@ -21,7 +21,7 @@ def generate_ship(ship_row):
 def generate_icebracker(df_row): 
     return Icebreaker(
     icebreaker_id=df_row.name, location=df_row['Начальное положение ледоколов на 27 февраля 2022'].upper(),
-    ice_class=df_row['Ледовый класс'], speed=df_row['Скорость, узлы \n(по чистой воде)']
+    ice_class=df_row['Ледовый класс'], speed=df_row['Скорость, узлы \n(по чистой воде)'], icebreaker_name= df_row['Наименование']
     )
 
 
