@@ -90,22 +90,30 @@ def calculate_time(start_point, end_point, map_mask, info, caravan, speed):
     index = map_mask.get_ice_index(end_point.x, end_point.y)
     speed_kmh = speed * 1.852
     time = 0
+    
+    if index == 3 or index == 2 or index == 1:
+        if isinstance(info[f'{index}'], float) or isinstance(info[f'{index}'], int):
+            cur_info = info[f'{index}']
+        else:
+            cur_info = info[f'{index}'][caravan]
+
     if index == 0:
         _, _, index = find_nearest_index(map_mask, end_point.x, end_point.y)
 
         if index==0: 
             print('index')
             time += kilometers / speed_kmh * index
-    elif index == 1000 or info[f'{index}'][caravan]==-1:
+    elif index == 1000 or cur_info==-1:
         return -1
     elif index == 3 or index == 2 or index == 1:
         
-        time += kilometers / (info[f'{index}'][caravan]*speed * 1.852) * 3600
+        time += kilometers / (cur_info * 1.852) * 3600
     else:
         time += kilometers / speed_kmh * index
     end_point.current_time += time
 #    end_point.map_mask.change_ice_map(end_point.current_time)
     return time
+
 def get_ice_index(lat, lon, previous_index, mapMask):
     x1, y1 = mapMask.decoder(lat, lon)
     index = mapMask.get_ice_index(x1, y1)
