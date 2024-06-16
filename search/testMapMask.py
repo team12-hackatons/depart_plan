@@ -16,7 +16,7 @@ class MapMask:
         self.last_ice_info = None
         self.map_width, self.map_height = self.image.size
 
-    def change_ice_map(self, current_time, json_path=r'data\map_data.json'):
+    def change_ice_map(self, current_time, json_path=r'data/map_data.json'):
         # Функция для преобразования даты в Unix время
 
         

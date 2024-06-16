@@ -12,11 +12,11 @@ from ship.getShip import get_ship_by_name
 from helpers.nodeInfo import NodeInfo
 import json
 
-map_mask = MapMask('resultMap\map_image.png')
-with open(r'ship\ports1.json', 'r', encoding='utf-8') as file:
+map_mask = MapMask('resultMap/map_image.png')
+with open(r'ship/ports1.json', 'r', encoding='utf-8') as file:
     ports_df = json.load(file)
 
-with open('ship\info.json', 'r', encoding='utf-8') as file:
+with open('ship/info.json', 'r', encoding='utf-8') as file:
     ice_info = json.load(file)
 
 def get_port_coordinates(ports_df, port_name):
@@ -778,6 +778,7 @@ class PlanningSystem:
 
         if is_path_exist:
             shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
+            optimize(shortest_path, map_mask, info, 0, ship['speed'])
             print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
             return (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
         return -1, []

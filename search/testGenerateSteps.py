@@ -42,6 +42,8 @@ def calculate_time_by_lat_lon(lat1, lon1, lat2, lon2, mapMask, info, caravan, sp
     speed_kmh = speed * 1.852
     time = 0
     for x, y in points:
+        if not mapMask.is_aqua(x, y):
+            return -1
         index = mapMask.get_ice_index(x, y)
         if index == 0:
             _, _, index = find_nearest_index(mapMask, x, y)
