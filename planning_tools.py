@@ -11,7 +11,8 @@ from search.testMapMask import MapMask
 from ship.getShip import get_ship_by_name
 from helpers.nodeInfo import NodeInfo
 import json
-
+import math
+import random
 map_mask = MapMask('resultMap/map_image.png')
 with open(r'ship/ports1.json', 'r', encoding='utf-8') as file:
     ports_df = json.load(file)
@@ -278,6 +279,59 @@ def draw_path(shortest_path, map_mask):
     for edge in shortest_path:
         shortest_path_array.append((edge.lat, edge.lon))
     map_mask.plot_graph_on_map(shortest_path_array)
+    
+
+
+
+def calculate_centroid(coordinates):
+    x = 0
+    y = 0
+    z = 0
+
+    for lat, lon in coordinates:
+        latitude = math.radians(lat)
+        longitude = math.radians(lon)
+        x += math.cos(latitude) * math.cos(longitude)
+        y += math.cos(latitude) * math.sin(longitude)
+        z += math.sin(latitude)
+
+    total = len(coordinates)
+
+    x = x / total
+    y = y / total
+    z = z / total
+
+    central_lon = math.atan2(y, x)
+    hyp = math.sqrt(x * x + y * y)
+    central_lat = math.atan2(z, hyp)
+
+    return (math.degrees(central_lat), math.degrees(central_lon))
+
+def find_water_point(lat, lon, step_size=0.1, max_attempts=1000):
+    for _ in range(max_attempts):
+        x,y = map_mask.decoder(lat, lon)
+        if map_mask.is_aqua(x,y):
+            return (lat, lon)
+        
+        # Пробуем сместиться на небольшое расстояние в случайном направлении
+        angle = random.uniform(0, 2 * math.pi)
+        lat += step_size * math.cos(angle)
+        lon += step_size * math.sin(angle)
+    
+    raise Exception("Не удалось найти точку на воде")
+    
+
+def find_closest_meeting_point(ships:list):
+    ship_inf = [get_ship_by_name(ship.ship_name, directory='../ship') for  ship in ships]
+    coordinates = [(ship_inf_i['start'][0], ship_inf_i['start'][1]) for ship_inf_i in ship_inf]
+    for i in coordinates: print(f'{i[1]},{i[0]}')
+    center_lat, center_lon = calculate_centroid(coordinates)
+    coordinates.append(find_water_point(center_lat, center_lon))
+    map_mask.plot_graph_on_map(coordinates)
+    return find_water_point(center_lat, center_lon)
+
+
+
 '''
 ----------------------------------------------------------------------------------------------
 Class for storing planned routes, dates and included ships
