@@ -1,0 +1,58 @@
+{
+  "50 лет Победы":{
+    "status": "stay",
+    "position": {
+      "latitude": 69.9,
+      "longitude": 179.0
+    },
+    "current_time": 0,
+    "end_time": 0,
+    "info": {
+      "1": 22,
+      "2": 19.5,
+      "3": 15.5
+    }
+  },
+  "Ямал": {
+    "status": "stay",
+    "position": {
+      "latitude": 69.5,
+      "longitude": 33.75
+    },
+    "current_time": 0,
+    "end_time": 0,
+    "info": {
+      "1": 21,
+      "2": 17.55,
+      "3": 13.95
+    }
+  },
+  "Вайгач": {
+    "status": "stay",
+    "current_time": 0,
+    "end_time": 0,
+    "position": {
+      "latitude": 74.6,
+      "longitude": 63.9
+    },
+    "info": {
+      "1": 18.5,
+      "2": 16.65,
+      "3": 13.875
+    }
+  },
+  "Таймыр": {
+    "status": "stay",
+    "position": {
+        "latitude": 77.3,
+        "longitude": 67.7
+    },
+    "current_time": 0,
+    "end_time": 0,
+    "info": {
+      "1": 18.5,
+      "2": 16.65,
+      "3": 13.875
+    }
+  }
+}
