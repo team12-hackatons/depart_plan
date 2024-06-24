@@ -29,7 +29,7 @@ class Square:
 class Ice:
 
     def __init__(self):
-        self.df = pd.read_excel('../data/parse_data_ice_tree.xlsx')
+        self.df = pd.read_excel('data/parse_data_ice_tree.xlsx')
 
         self.squares = []
 
@@ -37,11 +37,22 @@ class Ice:
             top_left = (row['top_left_lat'], row['top_left_lon'])
             bottom_right = (row['bottom_right_lat'], row['bottom_right_lon'])
             center = (row['center_lat'], row['center_lon'])
-            self.squares.append(Square(top_left, bottom_right, center, row['03-Mar-2020']))
+            self.squares.append(Square(top_left, bottom_right, center, row['26-May-2020']))
 
      # Построение KD-дерева
         centers = np.array([square.center for square in self.squares])
         self.kd_tree = KDTree(centers)
+
+    def find_clean_water(self, point, map_mask):
+        num_neighbors = 500
+        while True:
+            distances, indices = self.kd_tree.query(point, k=num_neighbors)
+            len_sq = len(self.squares)
+            for idx in indices:
+                if idx in range(0, len_sq):
+                    if self.squares[idx].index != 1000:
+                        return self.squares[idx]
+            num_neighbors *= 5
 
     def find_nearest_square(self, point, num_neighbors=3):
         # Находим несколько ближайших квадратов

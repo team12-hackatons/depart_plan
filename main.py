@@ -18,7 +18,7 @@ def generate_ship(ship_row):
     speed=ship_row['Скорость, узлы\n(по чистой воде)'], ship_name=ship_row['Название судна'].upper()
     )
 
-def generate_icebracker(df_row): 
+def generate_icebracker(df_row):
     return Icebreaker(
     icebreaker_id=df_row.name, location=df_row['Начальное положение ледоколов на 27 февраля 2022'].upper(),
     ice_class=df_row['Ледовый класс'], speed=df_row['Скорость, узлы \n(по чистой воде)'], icebreaker_name= df_row['Наименование']
@@ -33,23 +33,23 @@ icebreakers = {ind: val for  ind, val in enumerate(icebracker_df.apply(lambda ro
 
 print(ships.items())
 
-test_ship_num = 5 # only for test
-for k,v in ships.items():
-    ports[v.init_location].add_ship(v)
-    
-    # only for test
-    test_ship_num -= 1
-    if test_ship_num == 0:
-        break
-
-test_icebreaker_num = 2   
-for k,v in icebreakers.items():
-    ports[v.location].add_icebreaker(v)
-
-    # only for test
-    test_icebreaker_num -= 1
-    if test_icebreaker_num == 0:
-        break
+# test_ship_num = 5 # only for test
+# for k,v in ships.items():
+#     ports[v.init_location].add_ship(v)
+#
+#     # only for test
+#     test_ship_num -= 1
+#     if test_ship_num == 0:
+#         break
+#
+# test_icebreaker_num = 2
+# for k,v in icebreakers.items():
+#     ports[v.location].add_icebreaker(v)
+#
+#     # only for test
+#     test_icebreaker_num -= 1
+#     if test_icebreaker_num == 0:
+#         break
 #for snip in list(ships.values()): print(calculate_ship_travel_time(snip))
 plan = PlanningSystem(ports.values(), max_icebreakers=4, max_in_caravan=3,current_date= min([ship_1.ready_date for ship_1 in ships.values()]))
 plan.run_daily_planning()

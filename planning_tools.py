@@ -167,7 +167,7 @@ def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
     ship_inf = get_ship_by_name(ship.ship_name, directory='../ship')
     G = nx.Graph()
     current_time = int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
-    map_mask.change_ice_map(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
+    # map_mask.change_ice_map(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
     NodeInfo.set_class(ship_inf['end'][0], ship_inf['end'][1], current_time)
     start_point_node = check_start_end(map_mask, NodeInfo(ship_inf['start'][0], ship_inf['start'][1], 0., map_mask, current_time))
     end_point_node = check_start_end(map_mask, NodeInfo(ship_inf['end'][0], ship_inf['end'][1], 0, map_mask, current_time))
@@ -219,13 +219,18 @@ def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
 
 def calculate_caravan_travel_time(caravan: Caravan) -> int:
     G = nx.Graph()
+
     current_time = int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
-    map_mask.change_ice_map(int(datetime.strptime( caravan.planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
+    # map_mask.change_ice_map(int(datetime.strptime( caravan.planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
+
     print(caravan.start_location, caravan.end_location, [ship.ship_name for ship in caravan.ships], current_time)
     print(int(datetime.strptime( caravan.planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
+
     NodeInfo.set_class(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], current_time)
+
     start_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[1], 0., map_mask, current_time))
     end_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], 0, map_mask, current_time))
+
     G.add_node(start_point_node)
     G.add_node(end_point_node)
 
