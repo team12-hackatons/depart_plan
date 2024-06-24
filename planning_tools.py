@@ -26,6 +26,7 @@ def get_port_coordinates(ports_df, port_name):
         if port['point_name'].upper() == port_name:
             return port['latitude'], port['longitude']
 
+
     
 ice_dict = {
     "No ice class": (0,"No ice class"),"Ice1":(1,"Ice1"),
@@ -46,7 +47,6 @@ with open(json_map_data_path, 'r') as file:
 
         
 
-
 '''
 ----------------------------------------------
 Class for adding ship and storing ship info
@@ -55,13 +55,17 @@ __init__ - add info about new ship
 ----------------------------------------------
 '''
 class Ship:
+
     def __init__(self, ship_id: int, destination: str, ready_date: datetime, ice_class: str, init_location: str, speed: int, ship_name: str):
+
         self.ship_id = ship_id
         self.init_location = init_location
         self.destination = destination
         self.ready_date = ready_date
         self.ice_class = ice_class
+
         self.is_departed = False
+
         self.speed = speed
         self.caravan = None
         self.ship_name = ship_name.upper()
@@ -75,6 +79,7 @@ __init__ - add info about new icebreaker
 '''
 class Icebreaker:
     def __init__(self, icebreaker_id: int, location: str, ice_class: int, speed: float,icebreaker_name: str, destination: str = None, available_date = datetime.combine(datetime.strptime("1-March-2022 00:00:00", "%d-%B-%Y %H:%M:%S").date(), datetime.min.time())):
+
         self.icebreaker_id = icebreaker_id
         self.location = location
         self.destination = destination
@@ -161,6 +166,7 @@ class Caravan:
             quality += time_profit
         return quality
 
+
 def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
     print(ship.ship_name, ship.init_location, ship.destination)
     print(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
@@ -215,6 +221,7 @@ def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
         print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
         return (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
     return -1, []
+
 
 
 def calculate_caravan_travel_time(caravan: Caravan) -> int:
@@ -336,7 +343,6 @@ def find_closest_meeting_point(ships:list):
     return find_water_point(center_lat, center_lon)
 
 
-
 '''
 ----------------------------------------------------------------------------------------------
 Class for storing planned routes, dates and included ships
@@ -438,11 +444,11 @@ class RouteSchedule:
             
             fin_dict[i] = cur_dict
 
+
         with open('routes_schedule.json', 'w') as file:
             json.dump(fin_dict, file)
 
 
-    
 '''
 ------------------------------------------------------------------------------------------------------------------------------
 Class for whole planning process
@@ -604,17 +610,20 @@ class PlanningSystem:
                 # Set departure and arrival dates
                 travel_time,path = calculate_caravan_travel_time(best_caravan)
                 arrival_date = best_caravan.departure_date + timedelta(days=travel_time)
+
                 best_caravan.icebreaker.available_date = arrival_date
 
                 participants = [ship for ship in best_caravan.ships] + [best_caravan.icebreaker]
                 self.record_route(departure_date=best_caravan.departure_date, 
                                 quality=best_caravan.caravan_quality,  
+
                                 arrival_date=arrival_date, 
                                 departure_port=port.port_name,
                                 arrival_port=best_caravan.ships[0].destination, 
                                 movement_type='caravan',
                                 participants=participants,
                                 path=path)             
+
 
     def group_ships_by_destination(self, ships: List[Ship]) -> Dict[str, List[Ship]]:
         groups = {}
@@ -642,6 +651,7 @@ class PlanningSystem:
         if best_caravan and best_caravan.caravan_quality>float('-inf'):
             return best_caravan 
 
+
     def check_icebreaker_availability(self, port: Port):
         for icebreaker in port.icebreakers.values():
             if icebreaker.available_date <= self.current_date:
@@ -662,6 +672,7 @@ class PlanningSystem:
                         else:
                             time_before_caravan_ready = (best_caravan.departure_date - self.current_date).days
                             port_value = best_caravan.caravan_quality - abs(travel_time - time_before_caravan_ready)
+
                         if port_value > best_value:
                             best_port, best_value = other_port, port_value
                 if best_port:
@@ -694,12 +705,15 @@ class PlanningSystem:
                 
                 self.record_route(departure_date=departure_date, 
                                   quality=0,
+
                                   arrival_date=arrival_date, 
                                   departure_port=port.port_name,
                                   arrival_port=ship.destination, 
                                   movement_type='ship',
+
                                   participants=ship,
                                   path=path)    
+
 
 # insert some logs somewhere, like:
 #print(f"[LOG] Caravan with icebreaker {caravan.icebreaker.icebreaker_id} departs from {port.port_name} on {caravan.departure_date} to {caravan.ships[0].destination} arriving at {arrival_date}.")
@@ -760,6 +774,7 @@ class PlanningSystem:
                 icebreaker.current_port = None
                 destination_port.add_arriving_icebreaker(icebreaker, route['arrival_date'])
         elif route['movement_type'] == 'ship':
+
             ship = route['participants']  # Предполагается, что ship один в списке
             if isinstance(ship, Ship):
                 ship.is_departed = True
@@ -841,3 +856,4 @@ class PlanningSystem:
             print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
             return (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
         return -1, []
+
