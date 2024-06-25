@@ -2,6 +2,7 @@ import folium
 import os
 import geopandas as gpd
 from folium.plugins import MarkerCluster
+from mpl_toolkits.basemap import Basemap
 from shapely.geometry import Polygon
 from geopy.distance import geodesic
 import pandas as pd
@@ -11,7 +12,6 @@ from search.mapmask import MapMask
 file_path = 'data/parse_data_ice_tree.xlsx'
 
 df = None
-
 if False:
     df = pd.read_excel(file_path)
 
@@ -32,31 +32,28 @@ else:
     side_length_km = 25
 
 
-    def normalize_longitude(normalize_longitude):
-        if normalize_longitude > 180:
-            return normalize_longitude - 360
-        return normalize_longitude
+    # def normalize_longitude(normalize_longitude):
+    #     if normalize_longitude < 0:
+    #         return normalize_longitude + 360
+    #     return normalize_longitude
 
 
-    # =====================================================================================
-    #               Найти ошибку почему эта функция возвращает отрицательные значения
-    # =====================================================================================
     def generate_square(longitude, latitude, side_length):
-        longitude = normalize_longitude(longitude)
-        top_right_point = geodesic(kilometers=side_length).destination((latitude, longitude), 90)
+        # longitude = normalize_longitude(longitude)
+        top_right_point = geodesic(kilometers=side_length).destination((latitude, 0), 90)
         bottom_right_point = geodesic(kilometers=side_length).destination(
             (top_right_point.latitude, top_right_point.longitude), 180)
         points = None
-        if longitude > 0 > bottom_right_point.longitude:
-            points = [
-                [latitude, longitude],
-                [bottom_right_point.latitude, 180],
-            ]
-        else:
-            points = [
-                [latitude, longitude],
-                [bottom_right_point.latitude, bottom_right_point.longitude],
-            ]
+        # if longitude > 0 > bottom_right_point.longitude:
+        #     points = [
+        #         [latitude, longitude],
+        #         [bottom_right_point.latitude, 180],
+        #     ]
+        # else:
+        points = [
+            [latitude, longitude],
+            [bottom_right_point.latitude, bottom_right_point.longitude + longitude],
+        ]
         # for point in points:
         #     if not mapMask.is_aqua(point[0], point[1]):
         #         return points, "land"\
@@ -78,12 +75,12 @@ else:
         for j in range(lon_df.shape[1]):
             lon = lon_df.iloc[i, j]
             lat = lat_df.iloc[i, j]
-            if started_lon is None:
-                started_lon = lon
-            elif started_lon <= lon:
-                started_lon = lon
-            else:
-                lon = started_lon
+            # if started_lon is None:
+            #     started_lon = lon
+            # elif started_lon <= lon:
+            #     started_lon = lon
+            # else:
+            #     lon = started_lon
             top_left, bottom_right, center = generate_square(lon, lat, side_length_km)
             started_lon = bottom_right[1]
             indices = [top_left[0], top_left[1], bottom_right[0], bottom_right[1], center[0], center[1]]

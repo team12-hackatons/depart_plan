@@ -8,15 +8,15 @@ class NodeInfo:
     end_lon = None
      # = None
     start_time = None
-    def __init__(self, lat, lon, time_in_path, map_mask, current_time, x=None, y=None):
-        if x is None and y is None:
-            x, y = map_mask.decoder(lat, lon)
-        self.map_mask = map_mask
+    def __init__(self, lat, lon, time_in_path, current_time,  x=None, y=None):
+        # if x is None and y is None:
+            # x, y = map_mask.decoder(lat, lon)
+        # self.map_mask = map_mask
         self.lat = lat
         self.lon = lon
         self.x = x
         self.y = y
-        self.ice_index = self.map_mask.get_ice_index(x, y)
+        # self.ice_index = self.map_mask.get_ice_index(x, y)
         self.time_in_path = time_in_path
         self.current_time = current_time
         self.distance_to_end = geodesic((lat, lon), (NodeInfo.end_lat, NodeInfo.end_lon)).kilometers

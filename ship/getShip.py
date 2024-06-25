@@ -4,11 +4,11 @@ import os
 
 def get_ship_by_name(name, directory=r'ship'):
     # try:
-        with open(r'ship\ships.json', 'r', encoding='utf-8') as file:
+        with open(r'ship/ships.json', 'r', encoding='utf-8') as file:
             ships = json.load(file)
-        with open(r'ship\ports1.json', 'r', encoding='utf-8') as file:
+        with open(r'ship/ports1.json', 'r', encoding='utf-8') as file:
             ports = json.load(file)
-        with open('ship\info.json', 'r', encoding='utf-8') as file:
+        with open('ship/info.json', 'r', encoding='utf-8') as file:
             info = json.load(file)
         res = None
         for ship in ships:

@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 import re
-import json
+
 from PIL import Image, ImageDraw
 from matplotlib import pyplot as plt
 from mpl_toolkits.basemap import Basemap
@@ -9,32 +9,46 @@ from mpl_toolkits.basemap import Basemap
 
 class MapMask:
 
-    def __init__(self, image_path=r'resultMap/map_image.png'):
-        self.ice_map = None
+    def __init__(self, image_path=r'resultMap/map_ice.png'):
+        # self.ice_map = None
         self.map = Basemap(projection='mill', llcrnrlat=-90, urcrnrlat=90, llcrnrlon=-180, urcrnrlon=180)
         self.image = Image.open(image_path)
-        self.last_ice_info = None
+        # self.ice_map = Image.open(ice_map)
         self.map_width, self.map_height = self.image.size
 
-    def change_ice_map(self, current_time, json_path=r'data/map_data.json'):
-        # Функция для преобразования даты в Unix время
+    # def change_ice_map(self, current_time, file_path=r'../resultMap'):
+    #     files = os.listdir(file_path)
+    #
+    #     pattern = re.compile(r'map_ice_(\d{2})-(\w{3})-(\d{4})\.png')
+    #
+    #     # Месяцы для преобразования из названий в номера
+    #     months = {
+    #         "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04", "May": "05", "Jun": "06",
+    #         "Jul": "07", "Aug": "08", "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12"
+    #     }
 
-        
-        # Чтение JSON файла
-        with open(json_path, 'r') as file:
-            data = json.load(file)
-        
-        # Поиск подходящего диапазона времени
-        for time_range, file_path in data.items():
-            start_time, end_time = map(int, time_range.split('-'))
-            if start_time <= current_time < end_time:
-                self.ice_map = Image.open(file_path)
-                print('Карта обновилась')
-        if current_time< int(min(data.keys(), key=lambda x:  int(x.split('-')[0])).split('-')[0]): 
-            self.ice_map =  Image.open(data["1646254800-1646859600"])
-        elif current_time> int(max(data.keys(), key=lambda x:  int(x.split('-')[1])).split('-')[0]):
-            self.ice_map =  Image.open(data["1653512400-1646859600"])
-            
+        # def date_to_unix(day, month, year):
+        #     date_str = f'{year}-{months[month]}-{day} 00:00:00'
+        #     date_time = datetime.strptime(date_str, '%Y-%m-%d %H:%M:%S')
+        #     return int(date_time.timestamp())
+
+        latest_file = None
+        latest_time = 0
+
+        # for file in files:
+        #     match = pattern.match(file)
+        #     if match:
+        #         day, month, year = match.groups()
+        #         file_time = date_to_unix(day, month, year)
+        #
+        #         if current_time >= file_time > latest_time:
+        #             latest_time = file_time
+        #             latest_file = file
+        #
+        # if latest_file:
+        #     file_path = os.path.join(file_path, latest_file)
+        #     self.ice_map = Image.open(file_path)
+            # print(f"Изображение {latest_file} было обновлено.")
 
     def decoder(self, lat, lon):
         x, y = self.map(lon, lat)
@@ -51,7 +65,7 @@ class MapMask:
         return lat, lon
 
     def get_ice_index(self, x, y):
-        pixel_color = self.ice_map.getpixel((x, y))
+        pixel_color = self.image.getpixel((x, y))
         if pixel_color == (255, 0, 0, 255):
             return 1000
         elif pixel_color == (0, 0, 150, 255):
@@ -63,14 +77,22 @@ class MapMask:
         else:
             return 0
 
-    def is_aqua(self, x, y):
+    def is_aqua(self, x, y, rad = 1):
+        x = int(x)
+        y = int(y)
+        cc = self.image.size
+        if(x > cc[0] or x < 0):
+            x = cc[0]-1
+        if (y > cc[1] or y < 0):
+            y = cc[1] - 1
         pixel_color = self.image.getpixel((x, y))
         # if pixel_color == (255, 0, 0, 255):
         #     return False
-        min_x = max(0, x - 2)
-        max_x = min(self.map_width - 1, x + 2)
-        min_y = max(0, y - 2)
-        max_y = min(self.map_height - 1, y + 2)
+        # rad = 1
+        min_x = max(0, x - rad)
+        max_x = min(self.map_width - rad, x + rad)
+        min_y = max(0, y - rad)
+        max_y = min(self.map_height - rad, y + rad)
 
         for i in range(min_x, max_x + 1):
             for j in range(min_y, max_y + 1):
@@ -101,9 +123,9 @@ class MapMask:
 
     def plot_point(self, lat, lon):
         x, y = self.decoder(lat, lon)
-        image_with_point = self.ice_map.copy()  # Создаем копию исходного изображения
+        image_with_point = self.image.copy()  # Создаем копию исходного изображения
         draw = ImageDraw.Draw(image_with_point)
-        draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill='green')  # Рисуем точку
+        draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill='red')  # Рисуем точку
         image_with_point.show()
 
     def plot_point_X_Y(self, points):

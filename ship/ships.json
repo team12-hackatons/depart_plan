@@ -273,7 +273,7 @@
     },
     {
         "name": "НИКОЛАЙ ЧУДОТВОРЕЦ",
-        "class": "Нет",
+        "class": "No ice class",
         "speed": 16,
         "start": "Сабетта",
         "end": "Окно в Европу",
@@ -313,7 +313,7 @@
     },
     {
         "name": "YAMAL SPIRIT",
-        "class": "Нет",
+        "class": "No ice class",
         "speed": 14,
         "start": "Сабетта",
         "end": "Архангельск",
