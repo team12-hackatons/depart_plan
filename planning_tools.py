@@ -6,13 +6,28 @@ import itertools
 import folium
 from geopy.distance import geodesic
 import networkx as nx
-from search.testGenerateSteps import generate_points, optimize, check_start_end
+from search.testGenerateSteps import generate_points, optimize
 from search.testMapMask import MapMask
 from ship.getShip import get_ship_by_name
 from helpers.nodeInfo import NodeInfo
 import json
 import math
 import random
+import uuid
+from helpers.build_tree import Ice
+from helpers.visited_tree import VisitedRads
+ice_map = Ice()
+def generate_random_id():
+    return str(uuid.uuid4())
+
+def check_start_end(ice_map, point, map_mask):
+    cc, _ = ice_map.find_nearest_square((point.lat, point.lon))
+    if cc.index == 1000:
+        new_point = ice_map.find_clean_water((point.lat, point.lon), map_mask)
+        return NodeInfo(new_point.center[0], new_point.center[1], 0., point.current_time)
+    return point
+
+
 map_mask = MapMask('resultMap/map_image.png')
 with open(r'ship/ports1.json', 'r', encoding='utf-8') as file:
     ports_df = json.load(file)
@@ -65,7 +80,7 @@ class Ship:
         self.ice_class = ice_class
 
         self.is_departed = False
-
+        self.ship_info = get_ship_by_name(ship_name.upper(), directory='/ship')
         self.speed = speed
         self.caravan = None
         self.ship_name = ship_name.upper()
@@ -150,6 +165,9 @@ class Caravan:
         self.speed = min(ship.speed for ship in ships)
         self.planning_date = planning_date
         self.speed_coef = min([ice_dict[ship.ice_class.replace(' ', '')] for ship in ships], key=lambda x: x[0])[1]
+        for caravan_member in ships:
+            if caravan_member.ice_class.replace(' ', '') == self.speed_coef: 
+                self.caravan_info = get_ship_by_name(caravan_member.ship_name, directory='/ship')
         self.caravan_quality = self.calculate_caravan_quality()
 
     def calculate_caravan_quality(self):
@@ -157,7 +175,7 @@ class Caravan:
         time_with_icebreaker, path = calculate_caravan_travel_time(self)
         if time_with_icebreaker ==-1:return float('-inf')
         for ship in self.ships:
-            time_alone, path = calculate_ship_travel_time(ship, self.planning_date)
+            time_alone, path = calculate_ship_travel_time(ship)
             if time_alone == -1:
                 time_profit = time_with_icebreaker
 #            elif time_with_icebreaker == -1 and time_alone ==-1: quality = float('-inf')
@@ -167,29 +185,34 @@ class Caravan:
         return quality
 
 
-def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
+def calculate_ship_travel_time(ship: Ship) -> int:
     print(ship.ship_name, ship.init_location, ship.destination)
-    print(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
-    ship_inf = get_ship_by_name(ship.ship_name, directory='../ship')
+    start_point = ship.ship_info['start']
+    end_point = ship.ship_info['end']
     G = nx.Graph()
+    map_mask = MapMask('resultMap/map_image.png')
+    visited = VisitedRads()
+    NodeInfo.set_class(end_point[0], end_point[1], map_mask)
     current_time = int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
-    # map_mask.change_ice_map(int(datetime.strptime( planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
-    NodeInfo.set_class(ship_inf['end'][0], ship_inf['end'][1], current_time)
-    start_point_node = check_start_end(map_mask, NodeInfo(ship_inf['start'][0], ship_inf['start'][1], 0., map_mask, current_time))
-    end_point_node = check_start_end(map_mask, NodeInfo(ship_inf['end'][0], ship_inf['end'][1], 0, map_mask, current_time))
+
+    start_point_node = NodeInfo(start_point[0], start_point[1], 0., current_time)
+    end_point_node = NodeInfo(end_point[0], end_point[1], 0, current_time)
+    start_point_node = check_start_end(ice_map, start_point_node, map_mask)
+    end_point_node = check_start_end(ice_map, end_point_node, map_mask)
+    NodeInfo.set_class(end_point_node.lat, end_point_node.lon, map_mask)
 
     G.add_node(start_point_node)
     G.add_node(end_point_node)
 
     steps = [start_point_node]
-    visited = {}
+    # visited = {}
     i = 0
-
     is_path_exist = False
-
+    error_status = 0
     while True:
         if len(steps) == 0:
             print("пути нет")
+            error_status = 1
             break
         current_point = steps.pop()
         if current_point.distance_to_end <= 10:
@@ -197,59 +220,152 @@ def calculate_ship_travel_time(ship: Ship, planning_date: datetime) -> int:
             is_path_exist = True
             G.add_edge(current_point, end_point_node)
             break
-        if (current_point.x, current_point.y) in visited:
-            continue
-        visited[(current_point.x, current_point.y)] = current_point
-        new_steps = generate_points(current_point, map_mask, visited, ship_inf['info'], 0, ship.speed)
+        new_steps = generate_points(current_point, map_mask, visited, ice_map, ship.ship_info)
         for step in new_steps:
             G.add_node(step)
             G.add_edge(current_point, step, weight=step.distance_to_end)
         steps.extend(new_steps)
         steps = sorted(steps, key=lambda x: x.distance_to_end, reverse=True)
         i += 1
-        if i >= 10000:
+        if i >= 5000:
             print("Достигнут предел итераций")
+            error_status = 2
             break
 
-    # G.add_edge(current_point, end_point_node)
+    if not is_path_exist:
+        # m = folium.Map(location=[25, 25], zoom_start=4)
+        #
+        # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+        # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+        shortest_path_array = []
+        # if len(visited.rads) != 0:
+        if len(visited.rads) != 0:
+            for x in visited.rads:
+                # edge = visited[(x, y)]
+                shortest_path_array.append((x.center[0], x.center[1]))
+        try:
+            with open('ship/ships_path.json', 'r', encoding='utf8') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = []
 
-    # Функция эвристики для алгоритма A*
+        data.append({
+            generate_random_id(): {
+                "name": ship.ship_info['name'],
+                "start_time": start_point_node.current_time,
+                "end_time": "Inf",
+                "error_status": error_status,
+                "path": "Нужна проводка",
+                "info": ship.ship_info['info'],
+                "start_point": {
+                    "lat": start_point_node.lat,
+                    "lon": start_point_node.lon
+                },
+                "end_point": {
+                    "lat": end_point_node.lat,
+                    "lon": end_point_node.lon
+                }
+            },
+        })
+        with open('ship/ships_path.json', 'w', encoding='utf8') as f:
+            json.dump(data, f, indent=4)
+        #     line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+        #     line.add_to(m)
+        # # Создаем линию, соединяющую отсортированные точки
+        #
+        # m.save('path_map.html')
+        return -1, []
+
     def heuristic(n1, n2):
         return n1.time_in_path + n2.time_in_path
-    if is_path_exist:
-        shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
-        print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
-        return (shortest_path[-2].current_time-int(datetime.strptime( ship.ready_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
-    return -1, []
+
+    # Вычисляем кратчайший путь с использованием алгоритма A*
+    shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
+    # print(shortest_path)
+
+    # m = folium.Map(location=[25, 25], zoom_start=4)
+    #
+    # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+    # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+    shortest_path_array = []
+    shortest_path_array1 = []
+    # if len(visited.rads) != 0:
+    if len(visited.rads) != 0:
+        for x in visited.rads:
+            # edge = visited[(x, y)]
+            shortest_path_array.append((x.center[0], x.center[1]))
+
+        # line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+        # line.add_to(m)
+    # Создаем линию, соединяющую отсортированные точки
+
+    for x in shortest_path:
+        # edge = visited[(x, y)]
+        shortest_path_array1.append((x.lat, x.lon, x.current_time))
+    # line = folium.PolyLine(locations=shortest_path_array1, color='black', weight=5)
+    # line.add_to(m)
+    # # Сохраняем карту
+    # m.save('path_map.html')
+    try:
+        with open('ship/ships_path.json', 'r') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        data = []
+
+
+    data.append({
+        generate_random_id(): {
+            "name": ship.ship_info['name'],
+            "start_time": shortest_path_array1[0][2],
+            "end_time": shortest_path_array1[0][-2],
+            "path": [shortest_path_array1],
+            "error_status": error_status,
+            "info": ship.ship_info['info'],
+            "start_point": {
+                "lat": start_point_node.lat,
+                "lon": start_point_node.lon
+            },
+            "end_point": {
+                "lat": end_point_node.lat,
+                "lon": end_point_node.lon
+            }
+        },
+    })
+    #draw_path(shortest_path_array1, map_mask=map_mask)
+    with open('ship/ships_path.json', 'w') as f:
+        json.dump(data, f, indent=4)
+    return shortest_path_array1[-2][2]/(24*3600), shortest_path_array1
 
 
 
 def calculate_caravan_travel_time(caravan: Caravan) -> int:
+    start_point = get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)
+    end_point = get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)
+    print(caravan.start_location, caravan.end_location, [ship.ship_name for ship in caravan.ships])
     G = nx.Graph()
-
+    map_mask = MapMask('resultMap/map_image.png')
+    visited = VisitedRads()
+    NodeInfo.set_class(end_point[0], end_point[1], map_mask)
     current_time = int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
-    # map_mask.change_ice_map(int(datetime.strptime( caravan.planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
 
-    print(caravan.start_location, caravan.end_location, [ship.ship_name for ship in caravan.ships], current_time)
-    print(int(datetime.strptime( caravan.planning_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
-
-    NodeInfo.set_class(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], current_time)
-
-    start_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.start_location)[1], 0., map_mask, current_time))
-    end_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[0], get_port_coordinates(ports_df=ports_df, port_name=caravan.end_location)[1], 0, map_mask, current_time))
+    start_point_node = NodeInfo(start_point[0], start_point[1], 0., current_time)
+    end_point_node = NodeInfo(end_point[0], end_point[1], 0, current_time)
+    start_point_node = check_start_end(ice_map, start_point_node, map_mask)
+    end_point_node = check_start_end(ice_map, end_point_node, map_mask)
+    NodeInfo.set_class(end_point_node.lat, end_point_node.lon, map_mask)
 
     G.add_node(start_point_node)
     G.add_node(end_point_node)
 
     steps = [start_point_node]
-    visited = {}
+    # visited = {}
     i = 0
-
     is_path_exist = False
-
+    error_status = 0
     while True:
         if len(steps) == 0:
             print("пути нет")
+            error_status = 1
             break
         current_point = steps.pop()
         if current_point.distance_to_end <= 10:
@@ -257,10 +373,7 @@ def calculate_caravan_travel_time(caravan: Caravan) -> int:
             is_path_exist = True
             G.add_edge(current_point, end_point_node)
             break
-        if (current_point.x, current_point.y) in visited:
-            continue
-        visited[(current_point.x, current_point.y)] = current_point
-        new_steps = generate_points(current_point, map_mask, visited, ice_info[caravan.speed_coef],1,caravan.speed)
+        new_steps = generate_points(current_point, map_mask, visited, ice_map, caravan.caravan_info, caravan=1)
         for step in new_steps:
             G.add_node(step)
             G.add_edge(current_point, step, weight=step.distance_to_end)
@@ -269,27 +382,117 @@ def calculate_caravan_travel_time(caravan: Caravan) -> int:
         i += 1
         if i >= 10000:
             print("Достигнут предел итераций")
+            error_status = 2
             break
 
-    # G.add_edge(current_point, end_point_node)
+    if not is_path_exist:
+        # m = folium.Map(location=[25, 25], zoom_start=4)
+        #
+        # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+        # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+        shortest_path_array = []
+        # if len(visited.rads) != 0:
+        if len(visited.rads) != 0:
+            for x in visited.rads:
+                # edge = visited[(x, y)]
+                shortest_path_array.append((x.center[0], x.center[1]))
+        try:
+            with open('ship/ships_path.json', 'r', encoding='utf8') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = []
 
-    # Функция эвристики для алгоритма A*
+        data.append({
+            generate_random_id(): {
+                "name": [ship.ship_name for ship in caravan.ships],
+                "start_time": start_point_node.current_time,
+                "end_time": "Inf",
+                "error_status": error_status,
+                "path": "Нужна проводка",
+                "info": caravan.caravan_info['info'],
+                "start_point": {
+                    "lat": start_point_node.lat,
+                    "lon": start_point_node.lon
+                },
+                "end_point": {
+                    "lat": end_point_node.lat,
+                    "lon": end_point_node.lon
+                }
+            },
+        })
+        with open('ship/caravan_path.json', 'w', encoding='utf8') as f:
+            json.dump(data, f, indent=4)
+        #     line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+        #     line.add_to(m)
+        # # Создаем линию, соединяющую отсортированные точки
+        #
+        # m.save('path_map.html')
+        return -1, []
+
     def heuristic(n1, n2):
         return n1.time_in_path + n2.time_in_path
 
-    if is_path_exist:
-        shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
-        print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
-        return (shortest_path[-2].current_time-int(datetime.strptime( caravan.departure_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
-    return -1, []
+    # Вычисляем кратчайший путь с использованием алгоритма A*
+    shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
+    # print(shortest_path)
+
+    # m = folium.Map(location=[25, 25], zoom_start=4)
+    #
+    # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+    # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+    shortest_path_array = []
+    shortest_path_array1 = []
+    # if len(visited.rads) != 0:
+    if len(visited.rads) != 0:
+        for x in visited.rads:
+            # edge = visited[(x, y)]
+            shortest_path_array.append((x.center[0], x.center[1]))
+
+        # line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+        # line.add_to(m)
+    # Создаем линию, соединяющую отсортированные точки
+
+    for x in shortest_path:
+        # edge = visited[(x, y)]
+        shortest_path_array1.append((x.lat, x.lon, x.current_time))
+    # line = folium.PolyLine(locations=shortest_path_array1, color='black', weight=5)
+    # line.add_to(m)
+    # # Сохраняем карту
+    # m.save('path_map.html')
+    try:
+        with open('ship/caravan_path.json', 'r') as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        data = []
+
+
+    data.append({
+        generate_random_id(): {
+            "name": [ship.ship_name for ship in caravan.ships],
+            "start_time": shortest_path_array1[0][2],
+            "end_time": shortest_path_array1[0][-2],
+            "path": [shortest_path_array1],
+            "error_status": error_status,
+            "info": caravan.caravan_info['info'],
+            "start_point": {
+                "lat": start_point_node.lat,
+                "lon": start_point_node.lon
+            },
+            "end_point": {
+                "lat": end_point_node.lat,
+                "lon": end_point_node.lon
+            }
+        },
+    })
+    with open('ship/caravan_path.json', 'w') as f:
+        json.dump(data, f, indent=4)
+    #draw_path(shortest_path_array1, map_mask=map_mask)
+    return shortest_path_array1[-2][2]/(24*3600), shortest_path_array1
 
 def draw_path(shortest_path, map_mask):
     shortest_path_array = []
-    origin_path = []
     for edge in shortest_path:
-        origin_path.append((edge.lat, edge.lon))
-    for edge in shortest_path:
-        shortest_path_array.append((edge.lat, edge.lon))
+        shortest_path_array.append((edge[0], edge[1]))
     map_mask.plot_graph_on_map(shortest_path_array)
     
 
@@ -699,7 +902,7 @@ class PlanningSystem:
 
             # If not, assign independent departure date
             departure_date = ship.ready_date
-            travel_time, path = calculate_ship_travel_time(ship, planning_date=self.current_date)
+            travel_time, path = calculate_ship_travel_time(ship)
             if travel_time != -1:
                 arrival_date = departure_date + timedelta(days=travel_time)
                 
@@ -803,25 +1006,40 @@ class PlanningSystem:
         return is_icebreaker
 
     def calculate_icebreaker_travel_time_to_port(self, icebreacker: Icebreaker,from_port: Port, to_port: Port) -> int:
+        icebreacker_info = {
+            "name": icebreacker.icebreaker_name,
+            'class': icebreacker.ice_class,
+            "speed": 1,
+            'startTime': self.current_date,
+            'info': ice_info['Arc9'][icebreacker.icebreaker_name]
+        }
+        start_point = get_port_coordinates(ports_df=ports_df, port_name=from_port.port_name)
+        end_point = get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)
+        print(from_port.port_name, to_port.port_name, icebreacker.icebreaker_name)
         G = nx.Graph()
-        current_time = int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
-        map_mask.change_ice_map(int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))
-        print(from_port.port_name, to_port.port_name,  icebreacker.icebreaker_name,current_time)
-        NodeInfo.set_class(get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[0], get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[1], current_time)
-        start_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=from_port.port_name)[0], get_port_coordinates(ports_df=ports_df, port_name=from_port.port_name)[1], 0., map_mask, current_time))
-        end_point_node = check_start_end(map_mask, NodeInfo(get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[0], get_port_coordinates(ports_df=ports_df, port_name=to_port.port_name)[1], 0, map_mask, current_time))
+        map_mask = MapMask('resultMap/map_image.png')
+        visited = VisitedRads()
+        NodeInfo.set_class(end_point[0], end_point[1], map_mask)
+        current_time = int(datetime.strptime( icebreacker.available_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp())
+
+        start_point_node = NodeInfo(start_point[0], start_point[1], 0., current_time)
+        end_point_node = NodeInfo(end_point[0], end_point[1], 0, current_time)
+        start_point_node = check_start_end(ice_map, start_point_node, map_mask)
+        end_point_node = check_start_end(ice_map, end_point_node, map_mask)
+        NodeInfo.set_class(end_point_node.lat, end_point_node.lon, map_mask)
+
         G.add_node(start_point_node)
         G.add_node(end_point_node)
 
         steps = [start_point_node]
-        visited = {}
+        # visited = {}
         i = 0
-
         is_path_exist = False
-
+        error_status = 0
         while True:
             if len(steps) == 0:
                 print("пути нет")
+                error_status = 1
                 break
             current_point = steps.pop()
             if current_point.distance_to_end <= 10:
@@ -829,10 +1047,7 @@ class PlanningSystem:
                 is_path_exist = True
                 G.add_edge(current_point, end_point_node)
                 break
-            if (current_point.x, current_point.y) in visited:
-                continue
-            visited[(current_point.x, current_point.y)] = current_point
-            new_steps = generate_points(current_point, map_mask, visited, ice_info['Arc9'][icebreacker.icebreaker_name],1,1)
+            new_steps = generate_points(current_point, map_mask, visited, ice_map, icebreacker_info)
             for step in new_steps:
                 G.add_node(step)
                 G.add_edge(current_point, step, weight=step.distance_to_end)
@@ -841,19 +1056,110 @@ class PlanningSystem:
             i += 1
             if i >= 10000:
                 print("Достигнут предел итераций")
+                error_status = 2
                 break
 
-        # G.add_edge(current_point, end_point_node)
+        if not is_path_exist:
+            # m = folium.Map(location=[25, 25], zoom_start=4)
+            #
+            # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+            # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+            shortest_path_array = []
+            # if len(visited.rads) != 0:
+            if len(visited.rads) != 0:
+                for x in visited.rads:
+                    # edge = visited[(x, y)]
+                    shortest_path_array.append((x.center[0], x.center[1]))
+            try:
+                with open('ship/ships_path.json', 'r', encoding='utf8') as f:
+                    data = json.load(f)
+            except FileNotFoundError:
+                data = []
 
-        # Функция эвристики для алгоритма A*
+            data.append({
+                generate_random_id(): {
+                    "name": icebreacker.name,
+                    "start_time": start_point_node.current_time,
+                    "end_time": "Inf",
+                    "error_status": error_status,
+                    "path": "Нужна проводка",
+                    "info": icebreacker_info,
+                    "start_point": {
+                        "lat": start_point_node.lat,
+                        "lon": start_point_node.lon
+                    },
+                    "end_point": {
+                        "lat": end_point_node.lat,
+                        "lon": end_point_node.lon
+                    }
+                },
+            })
+            with open('ship/icebreacker_path.json', 'w', encoding='utf8') as f:
+                json.dump(data, f, indent=4)
+            #     line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+            #     line.add_to(m)
+            # # Создаем линию, соединяющую отсортированные точки
+            #
+            # m.save('path_map.html')
+            return -1, []
+
         def heuristic(n1, n2):
             return n1.time_in_path + n2.time_in_path
 
+        # Вычисляем кратчайший путь с использованием алгоритма A*
+        shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
+        # print(shortest_path)
 
-        if is_path_exist:
-            shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
-            optimize(shortest_path, map_mask, info, 0, ship['speed'])
-            print(shortest_path[-2].current_time, (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24))
-            return (shortest_path[-2].current_time-int(datetime.strptime( self.current_date.strftime('%Y-%m-%d %H:%M:%S'), '%Y-%m-%d %H:%M:%S').timestamp()))/(3600*24), shortest_path
-        return -1, []
+        # m = folium.Map(location=[25, 25], zoom_start=4)
+        #
+        # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+        # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+        shortest_path_array = []
+        shortest_path_array1 = []
+        # if len(visited.rads) != 0:
+        if len(visited.rads) != 0:
+            for x in visited.rads:
+                # edge = visited[(x, y)]
+                shortest_path_array.append((x.center[0], x.center[1]))
+
+            # line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+            # line.add_to(m)
+        # Создаем линию, соединяющую отсортированные точки
+
+        for x in shortest_path:
+            # edge = visited[(x, y)]
+            shortest_path_array1.append((x.lat, x.lon, x.current_time))
+        # line = folium.PolyLine(locations=shortest_path_array1, color='black', weight=5)
+        # line.add_to(m)
+        # # Сохраняем карту
+        # m.save('path_map.html')
+        try:
+            with open('ship/caravan_path.json', 'r') as f:
+                data = json.load(f)
+        except FileNotFoundError:
+            data = []
+
+
+        data.append({
+            generate_random_id(): {
+                "name": icebreacker.icebreaker_name,
+                "start_time": shortest_path_array1[0][2],
+                "end_time": shortest_path_array1[0][-2],
+                "path": [shortest_path_array1],
+                "error_status": error_status,
+                "info": icebreacker_info,
+                "start_point": {
+                    "lat": start_point_node.lat,
+                    "lon": start_point_node.lon
+                },
+                "end_point": {
+                    "lat": end_point_node.lat,
+                    "lon": end_point_node.lon
+                }
+            },
+        })
+#        with open('ship/icebreacker_path.json', 'w') as f:
+#            json.dump(data, f, indent=4)
+        #draw_path(shortest_path_array1, map_mask=map_mask)
+        return shortest_path_array1[-2][2]/(24*3600), shortest_path_array1
 

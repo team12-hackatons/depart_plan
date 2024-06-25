@@ -35,7 +35,7 @@ def bresenham_line(point1, point2):
     return pixels
 
 
-def calculate_time_by_lat_lon(lat1, lon1, lat2, lon2, ice_map, mapMask, ship):
+def calculate_time_by_lat_lon(lat1, lon1, lat2, lon2, ice_map, mapMask, ship, caravan):
     x1, y1 = mapMask.decoder(lat1, lon1)
     x2, y2 = mapMask.decoder(lat2, lon2)
     points = bresenham_line((x1, y1), (x2, y2))
@@ -56,17 +56,17 @@ def calculate_time_by_lat_lon(lat1, lon1, lat2, lon2, ice_map, mapMask, ship):
     if index == 1000:
         return -1
     if index == 3:
-        if ship['info']['3'][0] != -1:
-            time += kilometers / (speed_kmh * ship['info']['3'][0]) * 3600
+        if ship['info']['3'][caravan] != -1:
+            time += kilometers / (speed_kmh * ship['info']['3'][caravan]) * 3600
         else:
             return -1
     elif index == 2:
-        if ship['info']['2'][0] != -1:
-            time += kilometers / (speed_kmh * ship['info']['2'][0]) * 3600
+        if ship['info']['2'][caravan] != -1:
+            time += kilometers / (speed_kmh * ship['info']['2'][caravan]) * 3600
         else:
             return -1
     elif index == 1:
-        time += kilometers / speed_kmh * 3600
+        time += kilometers / (speed_kmh * ship['info']['1'][caravan]) * 3600
     return time
 
 
@@ -101,7 +101,7 @@ def f_cost(g_cost, h_cost, weight=0.5):
     return weight * g_cost + (1 - weight) * h_cost
 
 
-def optimize(path, map_mask):
+def optimize(path, map_mask, caravan):
     i = 1
     while i < len(path) - 1:
         current_point = path[i]
@@ -113,7 +113,7 @@ def optimize(path, map_mask):
         current_time = current_point.time_in_path + next_point.time_in_path + prev_point.time_in_path
 
         direct_time = calculate_time_by_lat_lon(prev_point.lat, prev_point.lon, next_point.lat, next_point.lon,
-                                                map_mask)
+                                                map_mask, caravan)
 
         if direct_time < current_time and direct_time != -1:
             next_point.set_time(direct_time)
@@ -123,7 +123,7 @@ def optimize(path, map_mask):
             i += 1
 
 
-def generate_points(point, map_mask, visited: VisitedRads, ice_map, ship, distance_km=5, step_degrees=30):
+def generate_points(point, map_mask, visited: VisitedRads, ice_map, ship, distance_km=5, step_degrees=30, caravan = 0):
     points = []
 
     for angle in range(0, 360, step_degrees):
@@ -131,7 +131,7 @@ def generate_points(point, map_mask, visited: VisitedRads, ice_map, ship, distan
         destination.longitude = destination.longitude + point.lon
         if map_mask.is_aqua(destination.latitude, destination.longitude):
             time = calculate_time_by_lat_lon(point.lat, point.lon, destination.latitude, destination.longitude,
-                                             ice_map, map_mask, ship)
+                                             ice_map, map_mask, ship, caravan)
             if time != -1:
                 dd = NodeInfo(destination.latitude, destination.longitude, time, time+point.current_time)
 
