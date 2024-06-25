@@ -64,17 +64,18 @@ def main(start_point, end_point, ship, ice_map):
         steps.extend(new_steps)
         steps = sorted(steps, key=lambda x: x.distance_to_end, reverse=True)
         i += 1
-        if i >= 1000:
+        if i >= 10000:
             print("Достигнут предел итераций")
             error_status = 2
             break
 
     if not is_path_exist:
-        # m = folium.Map(location=[25, 25], zoom_start=4)
-        #
-        # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
-        # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+        m = folium.Map(location=[25, 25], zoom_start=4)
+
+        folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+        folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
         shortest_path_array = []
+        map_array = []
         # if len(visited.rads) != 0:
         if len(visited.rads) != 0:
             for x in visited.rads:
@@ -93,6 +94,7 @@ def main(start_point, end_point, ship, ice_map):
                 "end_time": "Inf",
                 "error_status": error_status,
                 "path": "Нужна проводка",
+                "speed": ship['speed'],
                 "info": ship['info'],
                 "start_point": {
                     "lat": start_point_node.lat,
@@ -106,11 +108,11 @@ def main(start_point, end_point, ship, ice_map):
         })
         with open('ship/ships_path.json', 'w', encoding='utf8') as f:
             json.dump(data, f, indent=4)
-        #     line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
-        #     line.add_to(m)
-        # # Создаем линию, соединяющую отсортированные точки
-        #
-        # m.save('path_map.html')
+        line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+        line.add_to(m)
+        # Создаем линию, соединяющую отсортированные точки
+
+        m.save('path_map.html')
         return -1
 
     def heuristic(n1, n2):
@@ -120,29 +122,31 @@ def main(start_point, end_point, ship, ice_map):
     shortest_path = nx.astar_path(G, start_point_node, end_point_node, heuristic=heuristic)
     # print(shortest_path)
 
-    # m = folium.Map(location=[25, 25], zoom_start=4)
-    #
-    # folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
-    # folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
+    m = folium.Map(location=[25, 25], zoom_start=4)
+
+    folium.Marker(location=(start_point_node.lat, start_point_node.lon), popup='Start Point').add_to(m)
+    folium.Marker(location=(start_point_node.end_lat, start_point_node.end_lon), popup='End Point').add_to(m)
     shortest_path_array = []
     shortest_path_array1 = []
+    map_array =[]
     # if len(visited.rads) != 0:
     if len(visited.rads) != 0:
         for x in visited.rads:
             # edge = visited[(x, y)]
             shortest_path_array.append((x.center[0], x.center[1]))
 
-        # line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
-        # line.add_to(m)
+        line = folium.PolyLine(locations=shortest_path_array, color='blue', weight=5)
+        line.add_to(m)
     # Создаем линию, соединяющую отсортированные точки
 
     for x in shortest_path:
         # edge = visited[(x, y)]
+        map_array.append((x.lat, x.lon))
         shortest_path_array1.append((x.lat, x.lon, x.current_time))
-    # line = folium.PolyLine(locations=shortest_path_array1, color='black', weight=5)
-    # line.add_to(m)
+    line = folium.PolyLine(locations=map_array, color='black', weight=5)
+    line.add_to(m)
     # # Сохраняем карту
-    # m.save('path_map.html')
+    m.save('path_map.html')
     try:
         with open('ship/ships_path.json', 'r') as f:
             data = json.load(f)
@@ -156,6 +160,7 @@ def main(start_point, end_point, ship, ice_map):
             "start_time": shortest_path_array1[0][2],
             "end_time": shortest_path_array1[0][-2],
             "path": [shortest_path_array1],
+            "speed": ship['speed'],
             "error_status": error_status,
             "info": ship['info'],
             "start_point": {
@@ -170,29 +175,29 @@ def main(start_point, end_point, ship, ice_map):
     })
     with open('ship/ships_path.json', 'w') as f:
         json.dump(data, f, indent=4)
-    return shortest_path_array1[-2].current_time
+    return shortest_path_array1[-2][2]
 
 
 def generate_random_id():
     return str(uuid.uuid4())
 
-# if __name__ == '__main__':
-#
-#     # with open(r'ship/ships.json', 'r', encoding='utf-8') as file:
-#     #     ships = json.load(file)
-#     #
-#     # filtered_ships = [ship for ship in ships]
-#
-#     ice_map = Ice()
-#     ship = get_ship_by_name("BORIS SOKOLOV", directory='/ship')
-#     start_point = ship['start']
-#     end_point = ship['end']
-#     ship['class']="test"
-#     with open('ship/info.json', 'r', encoding='utf-8') as file:
-#         info = json.load(file)
-#     info = info["test"]
-#     ship['info'] = info
-#     main(start_point, end_point, ship, ice_map)
+if __name__ == '__main__':
+
+    # with open(r'ship/ships.json', 'r', encoding='utf-8') as file:
+    #     ships = json.load(file)
+    #
+    # filtered_ships = [ship for ship in ships]
+
+    ice_map = Ice()
+    ship = get_ship_by_name("ДЮК II", directory='/ship')
+    start_point = ship['start']
+    end_point = ship['end']
+    ship['class']="test"
+    with open('ship/info.json', 'r', encoding='utf-8') as file:
+        info = json.load(file)
+    info = info["test"]
+    ship['info'] = info
+    main(start_point, end_point, ship, ice_map)
 
     # for ship in filtered_ships:
     #     if ship['class'] == "Arc 9".strip():
@@ -204,19 +209,19 @@ def generate_random_id():
     #     main(start_point, end_point, ship, ice_map)
 
 
-if __name__ == '__main__':
-
-    with open(r'ship/ships.json', 'r', encoding='utf-8') as file:
-        ships = json.load(file)
-
-    filtered_ships = [ship for ship in ships]
-
-    ice_map = Ice()
-    for ship in filtered_ships:
-        if ship['class'] == "Arc 9".strip():
-            continue
-        ship = get_ship_by_name(ship['name'], directory='/ship')
-        start_point = ship['start']
-        end_point = ship['end']
-
-        main(start_point, end_point, ship, ice_map)
+# if __name__ == '__main__':
+#
+#     with open(r'ship/ships.json', 'r', encoding='utf-8') as file:
+#         ships = json.load(file)
+#
+#     filtered_ships = [ship for ship in ships]
+#
+#     ice_map = Ice()
+#     for ship in filtered_ships:
+#         if ship['class'] == "Arc 9".strip():
+#             continue
+#         ship = get_ship_by_name(ship['name'], directory='/ship')
+#         start_point = ship['start']
+#         end_point = ship['end']
+#
+#         main(start_point, end_point, ship, ice_map)

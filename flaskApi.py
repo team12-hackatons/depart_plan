@@ -3,13 +3,13 @@ from datetime import datetime
 from random import random, randint
 from flask_cors import CORS, cross_origin
 from flask import Flask, jsonify, request
-from planning_tools import calculate_ship_travel, Ship
+# from planning_tools import calculate_ship_travel, Ship
 
 app = Flask(__name__)
 cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 
-with open('data/routes_schedule.json', 'r', encoding='utf-8') as f:
+with open('ship/ships_path.json', 'r', encoding='utf-8') as f:
     ships = json.load(f)
 
 @app.route('/api/ships', methods=['GET'])
@@ -17,10 +17,11 @@ with open('data/routes_schedule.json', 'r', encoding='utf-8') as f:
 def getAllShips():
     filtered_ships = {}
 
-    for key, ship in ships.items():
+    for ship in ships:
         # Exclude the 'path' field from each ship
+        # key_id =
         filtered_ship = {k: v for k, v in ship.items() if k != 'path'}
-        filtered_ships[key] = filtered_ship
+        # filtered_ships[key] = filtered_ship
 
     return jsonify(filtered_ships)
 
@@ -51,17 +52,17 @@ def addShip():
         "ready_date": datetime.fromisoformat(request.json['ready_date'])
     }
     # ships.append(new_ship)
-    res = calculate_ship_travel(new_ship, new_ship['ready_date'], info)[1]
-    nodes_list = [
-        {
-            'lat': node.lat,
-            'lon': node.lon,
-            'current_time': node.current_time
-        }
-        for node in res
-    ]
+    # res = calculate_ship_travel(new_ship, new_ship['ready_date'], info)[1]
+    # nodes_list = [
+    #     {
+    #         'lat': node.lat,
+    #         'lon': node.lon,
+    #         'current_time': node.current_time
+    #     }
+    #     for node in res
+    # ]
 
-    return jsonify(nodes_list), 200
+    # return jsonify(nodes_list), 200
 
 @app.route('/api/currentPosition', methods=['POST'])
 @cross_origin()
