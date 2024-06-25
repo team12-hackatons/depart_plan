@@ -29,7 +29,7 @@ class Square:
 class Ice:
 
     def __init__(self):
-        self.df = pd.read_excel('data/parse_data_ice_tree.xlsx')
+        self.df = pd.read_excel('data\parse_data_ice_tree.xlsx')
 
         self.squares = []
 

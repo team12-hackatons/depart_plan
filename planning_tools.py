@@ -161,7 +161,7 @@ class Caravan:
         self.end_location = ships[0].destination
         self.icebreaker = icebreaker
         self.is_departed = False
-        self.departure_date = max(max(ship.ready_date for ship in ships),icebreaker.available_date)
+        self.departure_date = max(max(max(ship.ready_date for ship in ships),icebreaker.available_date),planning_date)
         self.speed = min(ship.speed for ship in ships)
         self.planning_date = planning_date
         self.speed_coef = min([ice_dict[ship.ice_class.replace(' ', '')] for ship in ships], key=lambda x: x[0])[1]
@@ -334,7 +334,7 @@ def calculate_ship_travel_time(ship: Ship) -> int:
     #draw_path(shortest_path_array1, map_mask=map_mask)
     with open('ship/ships_path.json', 'w') as f:
         json.dump(data, f, indent=4)
-    return shortest_path_array1[-2][2]/(24*3600), shortest_path_array1
+    return (shortest_path_array1[-2][2] - current_time)/(24*3600), shortest_path_array1
 
 
 
@@ -487,7 +487,7 @@ def calculate_caravan_travel_time(caravan: Caravan) -> int:
     with open('ship/caravan_path.json', 'w') as f:
         json.dump(data, f, indent=4)
     #draw_path(shortest_path_array1, map_mask=map_mask)
-    return shortest_path_array1[-2][2]/(24*3600), shortest_path_array1
+    return (shortest_path_array1[-2][2] - current_time)/(24*3600), shortest_path_array1
 
 def draw_path(shortest_path, map_mask):
     shortest_path_array = []
@@ -643,7 +643,7 @@ class RouteSchedule:
             cur_dict['arrival_port'] = rout['arrival_port']
             cur_dict['movement_type'] = rout['movement_type']
             cur_dict['quality'] = rout['quality']
-            cur_dict['path']=[[node.lat,node.lon,node.current_time] for node in rout['path']]
+            cur_dict['path']=[[node[0],node[1],node[2]] for node in rout['path']]
             
             fin_dict[i] = cur_dict
 
@@ -949,10 +949,10 @@ class PlanningSystem:
                 if route['departure_date'].date() <= self.current_date.date() and not is_departed:
                     # Handle departure
                     self.handle_departure(route)
-                elif route['arrival_date'].date() == self.current_date.date():
+                elif route['arrival_date'].date() <= self.current_date.date() and is_departed:
                     # Handle arrival
                     new_available_icebreaker = self.handle_arrival(route)
-                else:
+                elif not (route['departure_date'].date() <= self.current_date.date() and is_departed):
                     print(f'WARNING: Can not handle route. Date: {self.current_date}. Route: {route}')
         return new_available_icebreaker
 
@@ -977,7 +977,6 @@ class PlanningSystem:
                 icebreaker.current_port = None
                 destination_port.add_arriving_icebreaker(icebreaker, route['arrival_date'])
         elif route['movement_type'] == 'ship':
-
             ship = route['participants']  # Предполагается, что ship один в списке
             if isinstance(ship, Ship):
                 ship.is_departed = True
@@ -1161,5 +1160,5 @@ class PlanningSystem:
 #        with open('ship/icebreacker_path.json', 'w') as f:
 #            json.dump(data, f, indent=4)
         #draw_path(shortest_path_array1, map_mask=map_mask)
-        return shortest_path_array1[-2][2]/(24*3600), shortest_path_array1
+        return (shortest_path_array1[-2][2] - current_time)/(24*3600), shortest_path_array1
 
